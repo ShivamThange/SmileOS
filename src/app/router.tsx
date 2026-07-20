@@ -14,6 +14,10 @@ import { TreatmentPlanScreen } from "@/features/treatment-plan/treatment-plan-sc
 import { CostCalculatorScreen } from "@/features/cost-calculator/cost-calculator-screen";
 import { PlansListScreen } from "@/features/treatment-plan/plans-list-screen";
 import { PlanBuilderScreen } from "@/features/treatment-plan/plan-builder-screen";
+import { InvoicesScreen } from "@/features/revenue/invoices-screen";
+import { PaymentsScreen } from "@/features/revenue/payments-screen";
+import { PendingPaymentsScreen } from "@/features/revenue/pending-payments-screen";
+import { ExpensesScreen } from "@/features/revenue/expenses-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -54,10 +58,10 @@ export const router = createBrowserRouter([
 
       // Revenue
       { path: "revenue/unscheduled", element: <RecoveryScreen /> },
-      { path: "revenue/pending-payments", element: stub("Pending payments", "Outstanding receivables with ageing buckets — ₹64,200 under 30 days · ₹48,250 older.", "Back to dashboard") },
-      { path: "invoices", element: stub("Invoices", "Invoices, payments, instalment schedules and the day's collections will live here. Three bills are awaiting payment.", "Back to dashboard") },
-      { path: "payments", element: stub("Payments", "A chronological ledger of money received, daily close-of-day reconciliation, and refunds.", "Back to dashboard") },
-      { path: "expenses", element: stub("Expenses", "Track clinic expenses so profitability reports tell the whole story.", "Back to dashboard") },
+      { path: "revenue/pending-payments", element: <PendingPaymentsScreen /> },
+      { path: "invoices", element: <InvoicesScreen /> },
+      { path: "payments", element: <PaymentsScreen /> },
+      { path: "expenses", element: <ExpensesScreen /> },
       { path: "treatment-plans", element: <PlansListScreen /> },
       { path: "treatment-plans/:id", element: <PlanBuilderScreen /> },
 
