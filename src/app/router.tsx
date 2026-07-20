@@ -28,6 +28,11 @@ import { SuppliersScreen } from "@/features/operations/suppliers-screen";
 import { StaffScreen } from "@/features/team/staff-screen";
 import { AttendanceScreen } from "@/features/team/attendance-screen";
 import { AnalyticsScreen } from "@/features/insight/analytics-screen";
+import { ClinicalQueueScreen } from "@/features/clinical/clinical-queue-screen";
+import { PrescriptionsScreen } from "@/features/clinical/prescriptions-screen";
+import { WaitlistScreen } from "@/features/appointments/waitlist-screen";
+import { CheckinScreen } from "@/features/appointments/checkin-screen";
+import { NewPatientScreen } from "@/features/patients/new-patient-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -54,17 +59,17 @@ export const router = createBrowserRouter([
       // Schedule
       { path: "calendar", element: <CalendarScreen /> },
       { path: "appointments", element: <CalendarScreen /> },
-      { path: "waitlist", element: stub("Waitlist", "Patients waiting for an earlier slot. Slot them into a freed cancellation gap with one action.", "Open calendar", "schedule") },
-      { path: "check-in", element: stub("Check-in", "Today's arrivals and one-tap check-in for the front desk.", "Open calendar", "schedule") },
+      { path: "waitlist", element: <WaitlistScreen /> },
+      { path: "check-in", element: <CheckinScreen /> },
 
       // Patients
       { path: "patients", element: <PatientsListScreen /> },
-      { path: "patients/new", element: stub("New patient", "Create a patient record — the patient number is generated automatically.", "Back to list", "patients") },
+      { path: "patients/new", element: <NewPatientScreen /> },
       { path: "patients/:id", element: <PatientRecordScreen /> },
 
       // Clinical
-      { path: "clinical/queue", element: stub("Clinical queue", "Today's chairside worklist — checked-in patients in order, with waiting times and incomplete notes to finish.", "Back to dashboard", "clinical") },
-      { path: "clinical/prescriptions", element: stub("Prescriptions", "Write, sign and send prescriptions with a drug interaction and allergy cross-check.", "Back to dashboard", "clinical") },
+      { path: "clinical/queue", element: <ClinicalQueueScreen /> },
+      { path: "clinical/prescriptions", element: <PrescriptionsScreen /> },
 
       // Revenue
       { path: "revenue/unscheduled", element: <RecoveryScreen /> },
