@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ConsoleLayout } from "@/components/layouts/console-layout";
-import { PlaceholderScreen } from "@/components/common/placeholder-screen";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
 import { CalendarScreen } from "@/features/appointments/calendar-screen";
 import { RecoveryScreen } from "@/features/revenue/recovery-screen";
@@ -33,14 +32,7 @@ import { PrescriptionsScreen } from "@/features/clinical/prescriptions-screen";
 import { WaitlistScreen } from "@/features/appointments/waitlist-screen";
 import { CheckinScreen } from "@/features/appointments/checkin-screen";
 import { NewPatientScreen } from "@/features/patients/new-patient-screen";
-
-/** Placeholder route element — the design's own pattern for undesigned screens. */
-const stub = (
-  title: string,
-  body: string,
-  cta = "Back to dashboard",
-  icon: Parameters<typeof PlaceholderScreen>[0]["icon"] = "revenue",
-) => <PlaceholderScreen icon={icon} title={title} body={body} cta={cta} ctaTo="/app" />;
+import { SettingsScreen } from "@/features/settings/settings-screen";
 
 export const router = createBrowserRouter([
   { path: "/", element: <SiteScreen /> },
@@ -101,8 +93,8 @@ export const router = createBrowserRouter([
       { path: "analytics", element: <AnalyticsScreen /> },
 
       // Settings
-      { path: "settings", element: stub("Settings", "Clinic details, branding, fees and templates. A rebrand should take an hour, not a week.", "Back to dashboard", "settings") },
-      { path: "settings/*", element: stub("Settings", "Clinic details, branding, fees and templates. A rebrand should take an hour, not a week.", "Back to dashboard", "settings") },
+      { path: "settings", element: <SettingsScreen /> },
+      { path: "settings/*", element: <SettingsScreen /> },
 
       { path: "*", element: <Navigate to="/app" replace /> },
     ],
