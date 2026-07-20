@@ -25,6 +25,9 @@ import { InboxScreen } from "@/features/growth/inbox-screen";
 import { InventoryScreen } from "@/features/operations/inventory-screen";
 import { LabScreen } from "@/features/operations/lab-screen";
 import { SuppliersScreen } from "@/features/operations/suppliers-screen";
+import { StaffScreen } from "@/features/team/staff-screen";
+import { AttendanceScreen } from "@/features/team/attendance-screen";
+import { AnalyticsScreen } from "@/features/insight/analytics-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -86,11 +89,11 @@ export const router = createBrowserRouter([
       { path: "suppliers", element: <SuppliersScreen /> },
 
       // Team
-      { path: "staff", element: stub("Team", "Doctors, staff, rosters and permissions.", "Back to dashboard", "team") },
-      { path: "attendance", element: stub("Attendance", "Staff check-in / check-out log and hours.", "Back to dashboard", "team") },
+      { path: "staff", element: <StaffScreen /> },
+      { path: "attendance", element: <AttendanceScreen /> },
 
       // Insight
-      { path: "analytics", element: stub("Insight", "Reports with a consistent frame: filters, one chart, the table behind it, and an export.", "Back to dashboard", "insight") },
+      { path: "analytics", element: <AnalyticsScreen /> },
 
       // Settings
       { path: "settings", element: stub("Settings", "Clinic details, branding, fees and templates. A rebrand should take an hour, not a week.", "Back to dashboard", "settings") },
