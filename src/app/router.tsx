@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ConsoleLayout } from "@/components/layouts/console-layout";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
@@ -6,11 +7,25 @@ import { RecoveryScreen } from "@/features/revenue/recovery-screen";
 import { LeadsScreen } from "@/features/leads/leads-screen";
 import { PatientsListScreen } from "@/features/patients/patients-list-screen";
 import { PatientRecordScreen } from "@/features/patients/patient-record-screen";
-import { SiteHome } from "@/features/public-site/site-home";
-import { SiteScreen } from "@/features/public-site/site-screen";
-import { PortalHome } from "@/features/portal/portal-home";
-import { TreatmentPlanScreen } from "@/features/treatment-plan/treatment-plan-screen";
-import { CostCalculatorScreen } from "@/features/cost-calculator/cost-calculator-screen";
+
+/*
+ * The public site, patient portal, cost calculator and treatment-plan present
+ * view are standalone entry points that don't share the console shell — they're
+ * lazily loaded so a receptionist opening the console never downloads them, and
+ * a patient opening /plan never downloads the console.
+ */
+const SiteHome = lazy(() => import("@/features/public-site/site-home").then((m) => ({ default: m.SiteHome })));
+const SiteScreen = lazy(() => import("@/features/public-site/site-screen").then((m) => ({ default: m.SiteScreen })));
+const PortalHome = lazy(() => import("@/features/portal/portal-home").then((m) => ({ default: m.PortalHome })));
+const TreatmentPlanScreen = lazy(() => import("@/features/treatment-plan/treatment-plan-screen").then((m) => ({ default: m.TreatmentPlanScreen })));
+const CostCalculatorScreen = lazy(() => import("@/features/cost-calculator/cost-calculator-screen").then((m) => ({ default: m.CostCalculatorScreen })));
+
+/** Suspense wrapper for the lazily-loaded standalone surfaces. */
+const patientSurface = (el: ReactNode) => (
+  <Suspense fallback={<div className="min-h-screen grid place-items-center bg-[#EFEBE3] text-[13px] text-[#8C887E] font-sans">Loading…</div>}>
+    {el}
+  </Suspense>
+);
 import { PlansListScreen } from "@/features/treatment-plan/plans-list-screen";
 import { PlanBuilderScreen } from "@/features/treatment-plan/plan-builder-screen";
 import { InvoicesScreen } from "@/features/revenue/invoices-screen";
@@ -35,12 +50,12 @@ import { NewPatientScreen } from "@/features/patients/new-patient-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 
 export const router = createBrowserRouter([
-  { path: "/", element: <SiteScreen /> },
-  { path: "/hub", element: <SiteHome /> },
-  { path: "/portal", element: <PortalHome /> },
-  { path: "/plan", element: <TreatmentPlanScreen /> },
-  { path: "/plan/:id", element: <TreatmentPlanScreen /> },
-  { path: "/calculator", element: <CostCalculatorScreen /> },
+  { path: "/", element: patientSurface(<SiteScreen />) },
+  { path: "/hub", element: patientSurface(<SiteHome />) },
+  { path: "/portal", element: patientSurface(<PortalHome />) },
+  { path: "/plan", element: patientSurface(<TreatmentPlanScreen />) },
+  { path: "/plan/:id", element: patientSurface(<TreatmentPlanScreen />) },
+  { path: "/calculator", element: patientSurface(<CostCalculatorScreen />) },
 
   {
     path: "/app",
