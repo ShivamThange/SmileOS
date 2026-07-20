@@ -90,6 +90,22 @@ Backend stores paise (integer); formatter converts at display. One formatter, us
 - **Command palette**: 560px modal, 12vh top, overlay `rgba(33,32,28,.32)`; sections PATIENTS / GO TO.
 - **Toast**: bottom-center, ink bg, cream text, auto-dismiss ~2.6s.
 
+## Build status (all surfaces now implemented)
+Every surface in the design project is built and every Console route is a real
+screen (no placeholders remain). Routing:
+- **Public** — `/` Site (marketing), `/calculator` Cost Calculator, `/hub` prototype navigator.
+- **Patient** — `/portal` Portal, `/plan` · `/plan/:id` Treatment Plan present view.
+- **Console** — `/app/*`: dashboard, calendar, recovery, leads, patients (+ `new`, record),
+  clinical (queue, prescriptions), revenue (invoices, payments, pending, expenses,
+  treatment-plans list + `:id` builder), growth (recalls, campaigns, reviews, inbox),
+  operations (inventory, lab, suppliers), team (staff, attendance), insight (analytics),
+  settings.
+
+The four patient/public surfaces (`ToothArch`, patient toast) are **lazily loaded**
+(Suspense) so the console never ships them and vice-versa; framework code is a vendor chunk.
+Patient-facing surfaces use a slightly warmer canvas (`#EFEBE3`/`#F3EFE7`, surface `#FBF9F4`,
+border `#E2DCCF`) than the console — deliberate, per the designs.
+
 ## Screens designed at full fidelity (rebuild faithfully)
 Owner **Dashboard** (Money-at-risk hero panel + Today panel + 5 stat cards + collections bars +
 revenue-by-treatment + production-per-doctor + lead-source + new-vs-returning), **Calendar**
