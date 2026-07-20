@@ -124,3 +124,13 @@ a:hover {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Bottom-sheet slide-up for patient-facing surfaces (Portal / Treatment Plan). */
+@keyframes dc-sheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
