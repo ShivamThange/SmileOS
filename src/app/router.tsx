@@ -10,6 +10,7 @@ import { PatientRecordScreen } from "@/features/patients/patient-record-screen";
 import { SiteHome } from "@/features/public-site/site-home";
 import { PortalHome } from "@/features/portal/portal-home";
 import { TreatmentPlanScreen } from "@/features/treatment-plan/treatment-plan-screen";
+import { CostCalculatorScreen } from "@/features/cost-calculator/cost-calculator-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
   { path: "/portal", element: <PortalHome /> },
   { path: "/plan", element: <TreatmentPlanScreen /> },
   { path: "/plan/:id", element: <TreatmentPlanScreen /> },
+  { path: "/calculator", element: <CostCalculatorScreen /> },
 
   {
     path: "/app",
