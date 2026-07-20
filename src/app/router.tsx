@@ -8,6 +8,7 @@ import { LeadsScreen } from "@/features/leads/leads-screen";
 import { PatientsListScreen } from "@/features/patients/patients-list-screen";
 import { PatientRecordScreen } from "@/features/patients/patient-record-screen";
 import { SiteHome } from "@/features/public-site/site-home";
+import { SiteScreen } from "@/features/public-site/site-screen";
 import { PortalHome } from "@/features/portal/portal-home";
 import { TreatmentPlanScreen } from "@/features/treatment-plan/treatment-plan-screen";
 import { CostCalculatorScreen } from "@/features/cost-calculator/cost-calculator-screen";
@@ -21,7 +22,8 @@ const stub = (
 ) => <PlaceholderScreen icon={icon} title={title} body={body} cta={cta} ctaTo="/app" />;
 
 export const router = createBrowserRouter([
-  { path: "/", element: <SiteHome /> },
+  { path: "/", element: <SiteScreen /> },
+  { path: "/hub", element: <SiteHome /> },
   { path: "/portal", element: <PortalHome /> },
   { path: "/plan", element: <TreatmentPlanScreen /> },
   { path: "/plan/:id", element: <TreatmentPlanScreen /> },
