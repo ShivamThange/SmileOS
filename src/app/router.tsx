@@ -12,6 +12,8 @@ import { SiteScreen } from "@/features/public-site/site-screen";
 import { PortalHome } from "@/features/portal/portal-home";
 import { TreatmentPlanScreen } from "@/features/treatment-plan/treatment-plan-screen";
 import { CostCalculatorScreen } from "@/features/cost-calculator/cost-calculator-screen";
+import { PlansListScreen } from "@/features/treatment-plan/plans-list-screen";
+import { PlanBuilderScreen } from "@/features/treatment-plan/plan-builder-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -56,7 +58,8 @@ export const router = createBrowserRouter([
       { path: "invoices", element: stub("Invoices", "Invoices, payments, instalment schedules and the day's collections will live here. Three bills are awaiting payment.", "Back to dashboard") },
       { path: "payments", element: stub("Payments", "A chronological ledger of money received, daily close-of-day reconciliation, and refunds.", "Back to dashboard") },
       { path: "expenses", element: stub("Expenses", "Track clinic expenses so profitability reports tell the whole story.", "Back to dashboard") },
-      { path: "treatment-plans", element: stub("Treatment plans", "Plans across every acceptance state, each opening the builder — with a Present to Patient action.", "Back to dashboard") },
+      { path: "treatment-plans", element: <PlansListScreen /> },
+      { path: "treatment-plans/:id", element: <PlanBuilderScreen /> },
 
       // Growth
       { path: "leads", element: <LeadsScreen /> },
