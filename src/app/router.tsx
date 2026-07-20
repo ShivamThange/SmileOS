@@ -18,6 +18,10 @@ import { InvoicesScreen } from "@/features/revenue/invoices-screen";
 import { PaymentsScreen } from "@/features/revenue/payments-screen";
 import { PendingPaymentsScreen } from "@/features/revenue/pending-payments-screen";
 import { ExpensesScreen } from "@/features/revenue/expenses-screen";
+import { RecallsScreen } from "@/features/growth/recalls-screen";
+import { CampaignsScreen } from "@/features/growth/campaigns-screen";
+import { ReviewsScreen } from "@/features/growth/reviews-screen";
+import { InboxScreen } from "@/features/growth/inbox-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -68,10 +72,10 @@ export const router = createBrowserRouter([
       // Growth
       { path: "leads", element: <LeadsScreen /> },
       { path: "leads/:id", element: <LeadsScreen /> },
-      { path: "recalls", element: stub("Recalls", "Patients due or overdue for a recall — hygiene, ortho, implant review, post-op. Segment and run bulk WhatsApp campaigns.", "Back to dashboard", "growth") },
-      { path: "campaigns", element: stub("Campaigns", "Recall, reactivation, recovery and promotional campaigns with per-recipient outcomes and attributed revenue.", "Back to dashboard", "growth") },
-      { path: "reviews", element: stub("Reviews", "Ask a private rating first, route satisfied patients to Google, and catch unhappy ones for service recovery.", "Back to dashboard", "growth") },
-      { path: "inbox", element: stub("Unified inbox", "Every WhatsApp, SMS and email conversation in one three-pane view with the linked patient in context.", "Back to dashboard", "growth") },
+      { path: "recalls", element: <RecallsScreen /> },
+      { path: "campaigns", element: <CampaignsScreen /> },
+      { path: "reviews", element: <ReviewsScreen /> },
+      { path: "inbox", element: <InboxScreen /> },
 
       // Operations
       { path: "lab", element: stub("Lab tracking", "Lab work in transit and stock levels. Two items are below their reorder point.", "Back to dashboard", "operations") },
