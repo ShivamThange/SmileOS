@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * DentalOS design tokens — extracted from the Claude Design project.
+ * Warm, editorial IBM-Plex system. These are the brand-replaceable values:
+ * to rebrand for a new clinic, override --primary* / fonts here (or inject
+ * from the clinic config at boot). Clinical-status colours are fixed and
+ * live in the semantic block below; they must not change per brand.
+ */
+:root {
+  /* Structural */
+  --bg: #f4f3ef;
+  --bg-content: #faf9f6;
+  --surface: #ffffff;
+  --ink: #21201c;
+  --muted: #6e6c64;
+  --muted-strong: #57534a;
+  --muted-2: #98968c;
+  --muted-3: #b0aea4;
+  --border: #e6e4de;
+  --border-strong: #cfcdc5;
+  --border-faint: #f0eee8;
+  --track: #efede7;
+  --nav-hover: #ebeae4;
+
+  /* Brand — replaceable per clinic */
+  --primary: #20614e;
+  --primary-hover: #17493a;
+  --primary-lift: #2a7a63;
+  --primary-tint: #eaf1ee;
+  --primary-tint-border: #d4e0da;
+  --on-primary: #f7f6f3;
+
+  /* Semantic — fixed across brands */
+  --warning: #9a6215;
+  --warning-bg: #faf3e7;
+  --warning-panel: #fffdf7;
+  --warning-border: #ebd9bc;
+  --warning-text: #8a6b33;
+  --danger: #a8342a;
+  --danger-bg: #fbefed;
+  --danger-border: #efc7c2;
+  --danger-text: #b07770;
+  --info: #2e6da4;
+  --accent-purple: #7a4c8a;
+
+  /* Radii */
+  --radius: 8px;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere money/counts appear */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin, unobtrusive scrollbars in the warm palette */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-2);
+  background-clip: content-box;
+}
+
+/* Cancelled-appointment hatch fill */
+.hatch-cancelled {
+  background: repeating-linear-gradient(
+    45deg,
+    #faf9f6 0 6px,
+    #efede7 6px 12px
+  );
+}
+.hatch-lunch {
+  background: repeating-linear-gradient(
+    45deg,
+    #faf9f6 0 8px,
+    #f2f1ec 8px 16px
+  );
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--primary-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
