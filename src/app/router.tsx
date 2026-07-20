@@ -22,6 +22,9 @@ import { RecallsScreen } from "@/features/growth/recalls-screen";
 import { CampaignsScreen } from "@/features/growth/campaigns-screen";
 import { ReviewsScreen } from "@/features/growth/reviews-screen";
 import { InboxScreen } from "@/features/growth/inbox-screen";
+import { InventoryScreen } from "@/features/operations/inventory-screen";
+import { LabScreen } from "@/features/operations/lab-screen";
+import { SuppliersScreen } from "@/features/operations/suppliers-screen";
 
 /** Placeholder route element — the design's own pattern for undesigned screens. */
 const stub = (
@@ -78,9 +81,9 @@ export const router = createBrowserRouter([
       { path: "inbox", element: <InboxScreen /> },
 
       // Operations
-      { path: "lab", element: stub("Lab tracking", "Lab work in transit and stock levels. Two items are below their reorder point.", "Back to dashboard", "operations") },
-      { path: "inventory", element: stub("Inventory", "Item stock, reorder levels, expiry and value, with low-stock and near-expiry alerts.", "Back to dashboard", "operations") },
-      { path: "suppliers", element: stub("Suppliers", "Dental supplies, labs and equipment vendors with terms and ratings.", "Back to dashboard", "operations") },
+      { path: "lab", element: <LabScreen /> },
+      { path: "inventory", element: <InventoryScreen /> },
+      { path: "suppliers", element: <SuppliersScreen /> },
 
       // Team
       { path: "staff", element: stub("Team", "Doctors, staff, rosters and permissions.", "Back to dashboard", "team") },
