@@ -59,6 +59,26 @@ the full spec volume (~400 patients).
 - `GET /readyz` — readiness + dependency status (mongo, redis)
 - `GET /api/v1/` — API version
 
+## Implemented vs. remaining
+
+**Data model — complete.** Every collection in spec Part 2 has a Mongoose schema
+with the Part 2.10 indexing strategy (`src/models`).
+
+**Implemented endpoint modules:** auth (OTP/password/refresh/sessions/RBAC),
+clinic & settings, patients, appointments (conflict rule + status state machine),
+treatment plans + item-level decisions + the unscheduled-recovery worklist,
+billing (invoices/payments/receivables/expenses + gateway checkout), leads,
+recalls, analytics (dashboard + revenue-at-risk), public site + cost calculator,
+patient portal. Plus jobs/scheduler, integration services (payment/whatsapp/
+storage/email), and signature-verified idempotent webhooks.
+
+**Remaining endpoint modules** (schemas exist; routes are the next slice):
+users & roles admin, clinical CRUD (chart / notes / prescriptions / consents),
+operations CRUD (inventory / lab / suppliers / purchase-orders), communications
+(conversations / messages / templates / automation rules), content management,
+and the long tail of analytics reports. These follow the exact patterns already
+established (validator → controller → service, tenant-scoped, audited).
+
 ## Conventions (spec 8.3)
 
 - **Enums** are defined once in `src/shared/enums.ts` — the frontend imports these.
