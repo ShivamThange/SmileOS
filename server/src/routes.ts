@@ -4,6 +4,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { clinicRouter } from "./modules/clinic/clinic.routes";
 import { patientRouter } from "./modules/patient/patient.routes";
 import { appointmentRouter } from "./modules/appointment/appointment.routes";
+import { treatmentPlanRouter, planItemRouter, revenueRouter } from "./modules/treatment-plan/treatment-plan.routes";
 
 /*
  * API router aggregator (mounted at env.API_PREFIX). Domain module routers are
@@ -18,5 +19,8 @@ apiRouter.use("/auth", authRouter);
 apiRouter.use("/clinic", clinicRouter);
 apiRouter.use("/patients", patientRouter);
 apiRouter.use("/appointments", appointmentRouter);
+apiRouter.use("/treatment-plans", treatmentPlanRouter);
+apiRouter.use("/treatment-plan-items", planItemRouter);
+apiRouter.use("/revenue", revenueRouter);
 
 // Further domain modules mount below as they land.
