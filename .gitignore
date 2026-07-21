@@ -9,3 +9,5 @@ dist-ssr
 *.log
 .vite
 .claude/
+# TS incremental build artifacts
+*.tsbuildinfo
