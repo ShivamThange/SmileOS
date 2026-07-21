@@ -18,6 +18,29 @@ export interface MeUser {
   permissions: string[];
 }
 
+/** What a successful login returns — the access token (kept in memory) plus the
+ * principal. The refresh token is set by the server as an httpOnly cookie. */
+export interface LoginResult {
+  accessToken: string;
+  user: MeUser;
+}
+
+/** Request a 6-digit email OTP for staff login. Clinic is resolved from the
+ * X-Clinic-Slug header the client attaches. */
+export function requestStaffOtp(email: string): Promise<{ sent: boolean }> {
+  return api.post<{ sent: boolean }>("/auth/otp/request", { email, purpose: "login" }, { skipAuth: true });
+}
+
+/** Verify the OTP → issues a staff-audience session. */
+export function verifyStaffOtp(email: string, code: string): Promise<LoginResult> {
+  return api.post<LoginResult>("/auth/otp/verify", { email, purpose: "login", code }, { skipAuth: true });
+}
+
+/** Password login (staff fallback) → issues a staff-audience session. */
+export function passwordLogin(email: string, password: string): Promise<LoginResult> {
+  return api.post<LoginResult>("/auth/login", { email, password }, { skipAuth: true });
+}
+
 /** Silent refresh — exchanges the httpOnly refresh cookie for a new access
  * token. Returns null if there is no valid session (a fresh/guest visitor). */
 export async function refreshSession(): Promise<{ accessToken: string } | null> {
