@@ -7,6 +7,7 @@ import { authenticate } from "../../middleware/authenticate";
 import { resolveTenant } from "../../middleware/tenant";
 import { authorize } from "../../middleware/rbac";
 import { requireDb } from "../../middleware/require-db";
+import { pendingPaymentsHandler } from "../billing/billing.routes";
 
 /* Treatment plan + recovery routes (spec 4.7). */
 
@@ -60,6 +61,7 @@ revenueRouter.use(...guard);
 revenueRouter.get("/unscheduled", authorize("treatment_plan", "read"), asyncHandler(ctrl.unscheduled));
 revenueRouter.get("/unscheduled/summary", authorize("treatment_plan", "read"), asyncHandler(ctrl.unscheduledSummary));
 revenueRouter.get("/case-acceptance", authorize("analytics", "read"), asyncHandler(ctrl.caseAcceptance));
+revenueRouter.get("/pending-payments", authorize("invoice", "read"), asyncHandler(pendingPaymentsHandler));
 revenueRouter.post("/unscheduled/:itemId/contact", authorize("treatment_plan", "update"), asyncHandler(ctrl.logContact));
 revenueRouter.post("/unscheduled/:itemId/snooze", authorize("treatment_plan", "update"), asyncHandler(ctrl.snooze));
 revenueRouter.post("/unscheduled/:itemId/decline", authorize("treatment_plan", "update"), asyncHandler(ctrl.declineItem));
