@@ -7,7 +7,17 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    // Dev proxy → the API server (spec §6.2 / T0.4). Keeps the browser same-origin
+    // so the httpOnly refresh cookie flows without CORS preflight in dev.
+    proxy: {
+      "/api": { target: process.env.VITE_PROXY_TARGET || "http://localhost:4000", changeOrigin: true },
+      "/webhooks": { target: process.env.VITE_PROXY_TARGET || "http://localhost:4000", changeOrigin: true },
+      "/healthz": { target: process.env.VITE_PROXY_TARGET || "http://localhost:4000", changeOrigin: true },
+      "/readyz": { target: process.env.VITE_PROXY_TARGET || "http://localhost:4000", changeOrigin: true },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
