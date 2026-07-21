@@ -11,6 +11,8 @@ import { initials } from "@/lib/utils";
 import { waLink } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import type { Patient } from "@/types";
+import { usePermission } from "@/hooks/use-permission";
+import type { Permission } from "@/shared/rbac";
 
 /*
  * The command palette — now a verb surface, not just a map.
@@ -55,16 +57,18 @@ interface Verb {
   /** What the second step is titled. */
   prompt?: string;
   keywords: string[];
+  /** Permission the verb requires; the palette omits verbs the user can't run. */
+  perm: Permission;
 }
 
 const VERBS: Verb[] = [
-  { id: "book", label: "Book an appointment", icon: "schedule", needsPatient: false, keywords: ["book", "appointment", "slot", "schedule", "new appointment"] },
-  { id: "settle", label: "Take a payment", icon: "revenue", needsPatient: true, prompt: "Take a payment for", keywords: ["pay", "payment", "settle", "bill", "collect", "invoice", "upi"] },
-  { id: "message", label: "Send a WhatsApp", icon: "message", needsPatient: true, prompt: "Message", keywords: ["message", "whatsapp", "wa", "text", "send"] },
-  { id: "chart", label: "Chart a patient", icon: "clinical", needsPatient: true, prompt: "Chart", keywords: ["chart", "odontogram", "examine", "examination", "dictate", "findings"] },
-  { id: "record", label: "Open a patient record", icon: "patients", needsPatient: true, prompt: "Open the record for", keywords: ["record", "notes", "open", "history"] },
-  { id: "new-patient", label: "Register a new patient", icon: "patients", needsPatient: false, keywords: ["new patient", "register", "add patient", "create"] },
-  { id: "recovery", label: "Work the recovery queue", icon: "growth", needsPatient: false, keywords: ["recovery", "chase", "unscheduled", "follow up", "deferred"] },
+  { id: "book", label: "Book an appointment", icon: "schedule", needsPatient: false, keywords: ["book", "appointment", "slot", "schedule", "new appointment"], perm: "appointment:create" },
+  { id: "settle", label: "Take a payment", icon: "revenue", needsPatient: true, prompt: "Take a payment for", keywords: ["pay", "payment", "settle", "bill", "collect", "invoice", "upi"], perm: "payment:create" },
+  { id: "message", label: "Send a WhatsApp", icon: "message", needsPatient: true, prompt: "Message", keywords: ["message", "whatsapp", "wa", "text", "send"], perm: "message:create" },
+  { id: "chart", label: "Chart a patient", icon: "clinical", needsPatient: true, prompt: "Chart", keywords: ["chart", "odontogram", "examine", "examination", "dictate", "findings"], perm: "chart:update" },
+  { id: "record", label: "Open a patient record", icon: "patients", needsPatient: true, prompt: "Open the record for", keywords: ["record", "notes", "open", "history"], perm: "patient:read" },
+  { id: "new-patient", label: "Register a new patient", icon: "patients", needsPatient: false, keywords: ["new patient", "register", "add patient", "create"], perm: "patient:create" },
+  { id: "recovery", label: "Work the recovery queue", icon: "growth", needsPatient: false, keywords: ["recovery", "chase", "unscheduled", "follow up", "deferred"], perm: "treatment_plan:read" },
 ];
 
 type ResultKind = "verb" | "patient" | "screen";
@@ -78,6 +82,7 @@ export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, openPatientPreview, showToast } = useUIStore();
   const { openBooking, openSettle } = useDeskStore();
   const navigate = useNavigate();
+  const { can } = usePermission();
 
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<Verb | null>(null);
@@ -132,11 +137,12 @@ export function CommandPalette() {
         ? []
         : VERBS.filter(
             (v) =>
-              !q ||
-              v.label.toLowerCase().includes(q) ||
-              v.keywords.some((k) => k.includes(q) || q.includes(k)),
+              can(v.perm) &&
+              (!q ||
+                v.label.toLowerCase().includes(q) ||
+                v.keywords.some((k) => k.includes(q) || q.includes(k))),
           ),
-    [q, pending],
+    [q, pending, can],
   );
 
   const matchedScreens = useMemo(

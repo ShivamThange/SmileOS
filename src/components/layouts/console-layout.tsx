@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { navGroups } from "@/config/nav";
+import { visibleNavGroups } from "@/config/nav";
+import { usePermission } from "@/hooks/use-permission";
+import type { Permission } from "@/shared/rbac";
 import { clinicConfig, TODAY_LABEL } from "@/config/clinic";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,7 @@ export function ConsoleLayout() {
   const navigate = useNavigate();
   const { setPaletteOpen } = useUIStore();
   const { openBooking } = useDeskStore();
+  const { can, rolesFor } = usePermission();
   const { user, setUserId, isOverride } = useSession();
 
   async function handleSignOut() {
@@ -49,12 +52,13 @@ export function ConsoleLayout() {
    * Create menu. "New appointment" opens the booking bar rather than navigating
    * to the calendar — the desk should never lose its place to start a task.
    */
-  const createItems = [
-    { label: "New appointment", key: "A", run: () => openBooking() },
-    { label: "New patient", key: "P", run: () => navigate("/app/patients/new") },
-    { label: "New invoice", key: "I", run: () => navigate("/app/invoices") },
-    { label: "New lead", key: "L", run: () => navigate("/app/leads") },
+  const createItems: { label: string; key: string; run: () => void; perm: Permission }[] = [
+    { label: "New appointment", key: "A", run: () => openBooking(), perm: "appointment:create" },
+    { label: "New patient", key: "P", run: () => navigate("/app/patients/new"), perm: "patient:create" },
+    { label: "New invoice", key: "I", run: () => navigate("/app/invoices"), perm: "invoice:create" },
+    { label: "New lead", key: "L", run: () => navigate("/app/leads"), perm: "lead:create" },
   ];
+  const canBook = can("appointment:create");
 
   return (
     <div
@@ -92,7 +96,7 @@ export function ConsoleLayout() {
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2 flex flex-col gap-0.5">
-          {navGroups.map((grp, gi) => (
+          {visibleNavGroups(can).map((grp, gi) => (
             <div key={gi} className="flex flex-col gap-px" style={{ marginTop: gi === 0 ? 0 : 10 }}>
               {grp.label && !collapsed && (
                 <div className="text-[10px] font-semibold tracking-[0.08em] text-muted-2 px-2.5 pt-2 pb-1">
@@ -166,7 +170,9 @@ export function ConsoleLayout() {
            */}
           <button
             onClick={() => openBooking()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-tint-border bg-primary-tint text-primary text-[12.5px] font-semibold hover:bg-primary-tint-border"
+            disabled={!canBook}
+            title={canBook ? "Book an appointment" : `Booking is available to ${rolesFor("appointment:create")}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-tint-border bg-primary-tint text-primary text-[12.5px] font-semibold hover:bg-primary-tint-border disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-tint"
           >
             <Icon name="schedule" size={13} />
             Book
@@ -210,20 +216,25 @@ export function ConsoleLayout() {
             </button>
             {plusOpen && (
               <div className="absolute right-0 top-10 z-[60] w-[190px] bg-surface border border-border rounded-lg shadow-dropdown p-[5px] animate-dc-pop">
-                {createItems.map((pi) => (
-                  <button
-                    key={pi.key}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPlusOpen(false);
-                      pi.run();
-                    }}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-[7px] text-[12.5px] hover:bg-bg"
-                  >
-                    <span className="font-medium">{pi.label}</span>
-                    <span className="font-mono text-[10px] text-muted-2">{pi.key}</span>
-                  </button>
-                ))}
+                {createItems.map((pi) => {
+                  const allowed = can(pi.perm);
+                  return (
+                    <button
+                      key={pi.key}
+                      disabled={!allowed}
+                      title={allowed ? undefined : `Available to ${rolesFor(pi.perm)}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPlusOpen(false);
+                        pi.run();
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-[7px] text-[12.5px] hover:bg-bg disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      <span className="font-medium">{pi.label}</span>
+                      <span className="font-mono text-[10px] text-muted-2">{pi.key}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
