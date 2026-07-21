@@ -11,6 +11,8 @@ import { requireDb } from "../../middleware/require-db";
 import { recordAudit } from "../../services/audit.service";
 import { InvoiceModel, PaymentModel, ExpenseModel } from "../../models/billing.model";
 import * as svc from "./billing.service";
+import { createOrder, verifyCheckoutSignature } from "../../services/payment.service";
+import { errors } from "../../shared/errors";
 
 /*
  * Billing routes (spec 4.8). Invoices, payments (offline record; gateway flows
@@ -63,6 +65,20 @@ paymentRouter.post("/", authorize("payment", "create"), validate({ body: payment
 }));
 paymentRouter.get("/daily-summary", authorize("payment", "read"), asyncHandler(async (req, res) =>
   ok(res, await svc.dailySummary(req.clinicId!, req.query.date ? new Date(String(req.query.date)) : undefined))));
+
+// Gateway checkout (spec 5.3): create an order, then verify the returned
+// signature. The webhook remains the authoritative status; verify only unblocks
+// the UI. A pending payment row is created on order and confirmed by the webhook.
+paymentRouter.post("/create-order", authorize("payment", "create"), validate({ body: z.object({ invoice: z.string(), amountPaise: z.number().int().positive(), patient: z.string() }) }), asyncHandler(async (req, res) => {
+  const order = await createOrder(req.body.amountPaise, req.body.invoice);
+  await PaymentModel.create({ clinicId: req.clinicId, invoice: req.body.invoice, patient: req.body.patient, amountPaise: req.body.amountPaise, mode: "gateway", status: "pending", gateway: { orderId: order.orderId }, createdBy: req.auth!.userId });
+  return created(res, order, "Order created");
+}));
+paymentRouter.post("/verify", authorize("payment", "create"), validate({ body: z.object({ orderId: z.string(), paymentId: z.string(), signature: z.string() }) }), asyncHandler(async (req, res) => {
+  const valid = verifyCheckoutSignature(req.body.orderId, req.body.paymentId, req.body.signature);
+  if (!valid) throw errors.internal("Signature verification failed");
+  return ok(res, { verified: true, note: "Final status is confirmed by webhook" });
+}));
 
 /* Expenses */
 export const expenseRouter = Router();
