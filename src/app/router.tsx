@@ -59,20 +59,25 @@ import { NewPatientScreen } from "@/features/patients/new-patient-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { LoginScreen } from "@/features/auth/login-screen";
 import { PortalLogin } from "@/features/portal/portal-login";
+import { RequirePatient, RequireStaff } from "./guards";
 
 export const router = createBrowserRouter([
   { path: "/", element: patientSurface(<SiteScreen />) },
   { path: "/login", element: <LoginScreen /> },
   { path: "/portal/login", element: <PortalLogin /> },
   { path: "/hub", element: patientSurface(<SiteHome />) },
-  { path: "/portal", element: patientSurface(<PortalHome />) },
+  { path: "/portal", element: <RequirePatient>{patientSurface(<PortalHome />)}</RequirePatient> },
   { path: "/plan", element: patientSurface(<TreatmentPlanScreen />) },
   { path: "/plan/:id", element: patientSurface(<TreatmentPlanScreen />) },
   { path: "/calculator", element: patientSurface(<CostCalculatorScreen />) },
 
   {
     path: "/app",
-    element: <ConsoleLayout />,
+    element: (
+      <RequireStaff>
+        <ConsoleLayout />
+      </RequireStaff>
+    ),
     children: [
       /*
        * The front door resolves by role: the desk gets the morning brief, the

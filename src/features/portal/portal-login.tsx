@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { session, isApiError } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import { usePatientSession } from "@/hooks/use-patient-session";
@@ -28,6 +28,8 @@ function portalError(err: unknown): string {
 
 export function PortalLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
   const clinic = useAuth((s) => s.clinic);
 
   const [step, setStep] = useState<"email" | "code">("email");
@@ -48,7 +50,7 @@ export function PortalLogin() {
         const result = await verifyPatientOtp(email.trim(), code.trim());
         session.setAccessToken(result.accessToken);
         usePatientSession.getState().setPatient(result.patient);
-        navigate("/portal", { replace: true });
+        navigate(from && from.startsWith("/portal") ? from : "/portal", { replace: true });
       }
     } catch (err) {
       setError(portalError(err));

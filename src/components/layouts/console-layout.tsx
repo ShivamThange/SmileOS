@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { useUIStore } from "@/hooks/use-ui-store";
 import { useDeskStore } from "@/hooks/use-desk-store";
 import { useSession, DEMO_USERS } from "@/hooks/use-session";
+import { useAuth } from "@/hooks/use-auth";
+import { session } from "@/lib/api";
+import { logout as apiLogout } from "@/features/auth/api";
 import { CommandPalette } from "@/components/common/command-palette";
 import { ToastHost } from "@/components/common/toast";
 import { PatientPreviewDrawer } from "@/components/common/patient-preview-drawer";
@@ -24,7 +27,16 @@ export function ConsoleLayout() {
   const navigate = useNavigate();
   const { setPaletteOpen } = useUIStore();
   const { openBooking } = useDeskStore();
-  const { user, setUserId } = useSession();
+  const { user, setUserId, isOverride } = useSession();
+
+  async function handleSignOut() {
+    setWhoOpen(false);
+    setUserId(null); // clear any dev preview override
+    await apiLogout(); // best-effort server-side session revoke
+    session.clear();
+    useAuth.getState().setGuest();
+    navigate("/login", { replace: true });
+  }
 
   const isActive = (match: string) => new RegExp(match).test(location.pathname);
   const closeMenus = () => {
@@ -235,45 +247,68 @@ export function ConsoleLayout() {
             </button>
             {whoOpen && (
               <div className="absolute right-0 top-10 z-[60] w-[236px] bg-surface border border-border rounded-lg shadow-dropdown p-[5px] animate-dc-pop">
-                <div className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold tracking-[0.07em] text-muted-2">
-                  SIGNED IN AS
+                {/* The real signed-in user (from the server's RBAC claim). */}
+                <div className="px-2.5 pt-2 pb-2">
+                  <div className="text-[12.5px] font-semibold truncate">{user.name}</div>
+                  <div className="text-[10.5px] text-muted-2 truncate">
+                    {user.roleLabel}
+                    {isOverride && " · preview"}
+                  </div>
                 </div>
-                {DEMO_USERS.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setWhoOpen(false);
-                      setUserId(u.id);
-                      navigate("/app");
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[7px] text-left",
-                      u.id === user.id ? "bg-primary-tint" : "hover:bg-bg",
+
+                {/* Dev-only persona preview — never present in a production build. */}
+                {import.meta.env.DEV && (
+                  <div className="border-t border-border-faint mt-1 pt-1">
+                    <div className="px-2.5 pt-1 pb-1 text-[10px] font-bold tracking-[0.07em] text-muted-2">
+                      PREVIEW AS · DEV
+                    </div>
+                    {DEMO_USERS.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWhoOpen(false);
+                          setUserId(u.id);
+                          navigate("/app");
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[7px] text-left",
+                          isOverride && u.id === user.id ? "bg-primary-tint" : "hover:bg-bg",
+                        )}
+                      >
+                        <span className="w-[22px] h-[22px] rounded-full bg-bg text-muted grid place-items-center text-[9.5px] font-bold border border-border">
+                          {u.initials}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[12px] font-medium truncate">{u.name}</span>
+                          <span className="block text-[10px] text-muted-2 truncate">{u.roleLabel}</span>
+                        </span>
+                        {isOverride && u.id === user.id && <span className="text-[11px] text-primary">✓</span>}
+                      </button>
+                    ))}
+                    {isOverride && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setWhoOpen(false); setUserId(null); navigate("/app"); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-[11.5px] text-muted hover:bg-bg"
+                      >
+                        ← Back to signed-in user
+                      </button>
                     )}
-                  >
-                    <span className="w-[24px] h-[24px] rounded-full bg-bg text-muted grid place-items-center text-[10px] font-bold border border-border">
-                      {u.initials}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[12.5px] font-semibold truncate">{u.name}</span>
-                      <span className="block text-[10.5px] text-muted-2 truncate">
-                        {u.roleLabel}
-                      </span>
-                    </span>
-                    {u.id === user.id && <span className="text-[11px] text-primary">✓</span>}
-                  </button>
-                ))}
+                  </div>
+                )}
+
                 <div className="border-t border-border-faint mt-1 pt-1">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setWhoOpen(false);
-                      navigate("/app/settings/profile");
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setWhoOpen(false); navigate("/app/settings/profile"); }}
                     className="w-full text-left px-2.5 py-2 rounded-[7px] text-[12.5px] font-medium hover:bg-bg"
                   >
                     Settings
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); void handleSignOut(); }}
+                    className="w-full text-left px-2.5 py-2 rounded-[7px] text-[12.5px] font-medium text-danger hover:bg-danger-bg"
+                  >
+                    Sign out
                   </button>
                 </div>
               </div>

@@ -1,14 +1,16 @@
 import { create } from "zustand";
 import type { UserRole } from "@/types/enums";
+import type { MeUser } from "@/features/auth/api";
+import { useAuth } from "@/hooks/use-auth";
 
 /*
  * Session — who is signed in, and therefore what the console root shows.
  *
- * In production this comes from GET /auth/me and the role arrives from the
- * server's RBAC claim; the router must never trust a client-side toggle for
- * anything that guards data. Here it is a local store so the four console
- * personas (front desk, dentist, owner, accountant) can each be demonstrated,
- * and so `/app` can resolve to the right root screen without a settings flag.
+ * The real identity comes from GET /auth/me (the server's RBAC claim), held in
+ * `useAuth`. `useSession()` maps that principal onto the shape the console UI
+ * consumes. The DEMO_USERS persona switcher survives ONLY as a dev-only override
+ * (behind import.meta.env.DEV) so the reimagined screens can still be exercised
+ * per-role without seeding five logins — it never drives production access.
  */
 
 export interface SessionUser {
@@ -92,13 +94,73 @@ export function rootForRole(role: UserRole): ConsoleRoot {
   }
 }
 
-interface SessionState {
-  user: SessionUser;
-  setUserId: (id: string) => void;
+const ROLE_LABELS: Record<UserRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  doctor: "Doctor",
+  receptionist: "Front desk",
+  assistant: "Chairside assistant",
+  accountant: "Accounts",
+  lab_technician: "Lab",
+};
+
+function initialsOf(name: string): string {
+  return name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
-export const useSession = create<SessionState>((set) => ({
-  user: DEMO_USERS[0],
-  setUserId: (id) =>
-    set((s) => ({ user: DEMO_USERS.find((u) => u.id === id) ?? s.user })),
+function shortNameOf(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (/^dr\.?$/i.test(parts[0] ?? "")) return `Dr. ${parts[parts.length - 1]}`;
+  return parts[0] ?? name;
+}
+
+/** Map the real /auth/me principal onto the console's SessionUser shape. */
+export function mapAuthUserToSession(me: MeUser): SessionUser {
+  const clinical = me.role === "doctor" || me.role === "owner";
+  return {
+    id: me.id,
+    name: me.name,
+    shortName: shortNameOf(me.name),
+    initials: initialsOf(me.name),
+    role: me.role,
+    roleLabel: ROLE_LABELS[me.role] ?? me.role,
+    doctorName: clinical ? shortNameOf(me.name) : undefined,
+  };
+}
+
+/*
+ * Dev-only persona override. Lets a developer preview any role's console
+ * without five seeded logins. Compiled in only under import.meta.env.DEV; in a
+ * production build `overrideId` is always null and the real user always wins.
+ */
+interface OverrideState {
+  overrideId: string | null;
+  setUserId: (id: string | null) => void;
+}
+const useOverride = create<OverrideState>((set) => ({
+  overrideId: null,
+  setUserId: (id) => set({ overrideId: id }),
 }));
+
+export interface Session {
+  user: SessionUser;
+  /** Dev-only: switch the previewed persona. No-op in production. */
+  setUserId: (id: string | null) => void;
+  /** True when a dev override is masking the real signed-in user. */
+  isOverride: boolean;
+}
+
+/**
+ * The console's view of who is signed in. Real user from `useAuth`, with an
+ * optional dev-only persona override on top.
+ */
+export function useSession(): Session {
+  const authUser = useAuth((s) => s.user);
+  const overrideId = useOverride((s) => s.overrideId);
+  const setUserId = useOverride((s) => s.setUserId);
+
+  const override = import.meta.env.DEV && overrideId ? DEMO_USERS.find((u) => u.id === overrideId) : undefined;
+  const user = override ?? (authUser ? mapAuthUserToSession(authUser) : DEMO_USERS[0]);
+
+  return { user, setUserId, isOverride: !!override };
+}

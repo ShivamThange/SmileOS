@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { session, isApiError } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import { passwordLogin, requestStaffOtp, verifyStaffOtp, type LoginResult } from "./api";
@@ -46,6 +46,8 @@ type Mode = "otp-email" | "otp-code" | "password";
 
 export function LoginScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
   const clinic = useAuth((s) => s.clinic);
 
   const [mode, setMode] = useState<Mode>("otp-email");
@@ -59,7 +61,8 @@ export function LoginScreen() {
   function land(result: LoginResult) {
     session.setAccessToken(result.accessToken);
     useAuth.getState().setAuthed(result.user, useAuth.getState().clinic);
-    navigate("/app", { replace: true });
+    // Return to the guarded path they were headed to, else the role-aware root.
+    navigate(from && from.startsWith("/app") ? from : "/app", { replace: true });
   }
 
   async function submit(e: FormEvent) {
