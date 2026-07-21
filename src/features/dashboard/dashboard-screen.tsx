@@ -62,7 +62,15 @@ export function DashboardScreen() {
             Here is how the practice stands today.
           </div>
         </div>
-        <div className="text-xs text-muted-2">Compared with the previous 30 days</div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/app/insight")}
+            className="text-[12px] font-semibold text-primary"
+          >
+            ‹ Back to Insight
+          </button>
+          <span className="text-xs text-muted-2">Compared with the previous 30 days</span>
+        </div>
       </div>
 
       {/* Money at risk + Today */}
@@ -71,12 +79,23 @@ export function DashboardScreen() {
           className="rounded-lg p-[18px] flex flex-col justify-between gap-3.5"
           style={{ background: "var(--warning-panel)", border: "1px solid var(--warning-border)" }}
         >
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-sm bg-warning flex-none" />
               <span className="text-[11px] font-bold tracking-[0.09em] text-warning">
                 MONEY AT RISK
               </span>
+              {/*
+               * The three cards below are the symptoms. The leak report is the
+               * whole figure, including the chair time and no-shows that never
+               * appear on any invoice.
+               */}
+              <button
+                onClick={() => navigate("/app/insight/leak")}
+                className="text-[11.5px] font-semibold text-primary"
+              >
+                Open the leak report →
+              </button>
             </div>
             <div className="text-[22px] font-bold tnum tracking-[-0.02em]">
               {inrFromRupees(781050)}
@@ -142,9 +161,9 @@ export function DashboardScreen() {
       <div className="grid grid-cols-5 gap-3.5 max-lg:grid-cols-2">
         <StatCard label="Collected today" value={inrFromRupees(42300)} delta="+12%" sub="vs last Monday" onClick={() => navigate("/app/payments")} />
         <StatCard label="Collected this month" value={inrFromRupees(684500)} delta={`${monthPct}%`} deltaTone="warn" sub={`of ${inrFromRupees(MONTH_TARGET)} target`} barPct={monthPct} onClick={() => navigate("/app/payments")} />
-        <StatCard label="Work performed" value={inrFromRupees(812300)} delta="+9%" sub="vs last month" onClick={() => navigate("/app/analytics")} />
+        <StatCard label="Work performed" value={inrFromRupees(812300)} delta="+9%" sub="vs last month" onClick={() => navigate("/app/insight")} />
         <StatCard label="New patients" value="34" delta="+6" sub="vs last month" onClick={() => navigate("/app/leads")} />
-        <StatCard label="Chair utilisation" value="72%" delta="−3 pts" deltaTone="down" sub="vs last month" onClick={() => navigate("/app/analytics")} />
+        <StatCard label="Chair utilisation" value="72%" delta="−3 pts" deltaTone="down" sub="vs last month" onClick={() => navigate("/app/insight")} />
       </div>
 
       {/* Collections + revenue mix */}
