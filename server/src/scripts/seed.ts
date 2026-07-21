@@ -5,6 +5,7 @@ import {
   ClinicModel, UserModel, OperatoryModel, ProcedureModel, PatientModel, MedicalHistoryModel,
   AppointmentModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel,
   LeadModel, RecallModel, InventoryItemModel, LabCaseModel, SupplierModel, CounterModel,
+  InstalmentPlanModel, ConversationModel, MessageModel,
 } from "../models";
 import { hashPassword } from "../utils/password";
 import {
@@ -46,7 +47,7 @@ export async function seedClinic(): Promise<string> {
   const clinicId = clinic._id;
 
   // Idempotent wipe of this clinic's transactional data.
-  const models: mongoose.Model<unknown>[] = [UserModel, OperatoryModel, ProcedureModel, PatientModel, MedicalHistoryModel, AppointmentModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel, LeadModel, RecallModel, InventoryItemModel, LabCaseModel, SupplierModel] as unknown as mongoose.Model<unknown>[];
+  const models: mongoose.Model<unknown>[] = [UserModel, OperatoryModel, ProcedureModel, PatientModel, MedicalHistoryModel, AppointmentModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel, InstalmentPlanModel, LeadModel, RecallModel, ConversationModel, MessageModel, InventoryItemModel, LabCaseModel, SupplierModel] as unknown as mongoose.Model<unknown>[];
   await Promise.all(models.map((m) => m.deleteMany({ clinicId })));
   await CounterModel.deleteMany({ clinicId });
   logger.info("Cleared existing demo data");
@@ -105,31 +106,55 @@ export async function seedClinic(): Promise<string> {
   }
   logger.info(`Patients: ${patients.length}`);
 
-  // ---- Appointments across statuses ---------------------------------------
-  const STATUSES = ["completed", "completed", "completed", "cancelled", "no_show", "confirmed", "scheduled"];
-  let apptCount = 0;
-  for (let d = -40; d <= 10; d++) {
-    if (new Date(daysFromNow(d)).getDay() === 0) continue; // clinic closed Sundays
-    const perDay = randInt(3, 8);
-    for (let k = 0; k < perDay; k++) {
-      const doctor = pick(doctorDocs);
-      const chair = pick(chairs);
-      const hour = randInt(9, 18);
-      const start = new Date(daysFromNow(d)); start.setHours(hour, chance(0.5) ? 0 : 30, 0, 0);
+  // ---- Appointments: a per-patient visit history across up to 18 months -----
+  // Generated per patient (so volume scales with the roster and every appt sits
+  // in a real patient's timeline) between their first visit and today, plus a
+  // forward book for the calendar. ~10% no-show, the rest completed; a small
+  // slice cancelled. Batched via insertMany so a full-scale seed stays fast.
+  const nowMs = Date.now();
+  const apptDocs: Record<string, unknown>[] = [];
+  const snap = (t: number) => {
+    const dt = new Date(t);
+    if (dt.getDay() === 0) dt.setDate(dt.getDate() + 1); // clinic closed Sundays → Monday
+    dt.setHours(randInt(9, 18), chance(0.5) ? 0 : 30, 0, 0);
+    return dt;
+  };
+  for (const patient of patients) {
+    const firstMs = new Date(patient.firstVisit).getTime();
+    const tenure = Math.max(nowMs - firstMs, 30 * 86400000);
+    // 1–8 past visits, weighted toward a handful.
+    const nVisits = pick([1, 2, 2, 3, 3, 4, 5, 6, 8]);
+    for (let v = 0; v < nVisits; v++) {
+      const frac = (v + Math.random() * 0.8) / nVisits;
+      const start = snap(firstMs + tenure * frac);
+      if (start.getTime() > nowMs) continue;
       const end = new Date(start.getTime() + 30 * 60000);
-      const status = d > 0 ? pick(["scheduled", "confirmed"]) : pick(STATUSES);
+      const roll = Math.random();
+      const status = roll < 0.1 ? "no_show" : roll < 0.18 ? "cancelled" : "completed";
       const proc = pick(procDocs);
-      await AppointmentModel.create({
-        clinicId, patient: pick(patients)._id, doctor: doctor._id, operatory: chair._id, operatoryLabel: chair.name,
+      apptDocs.push({
+        clinicId, patient: patient._id, doctor: pick(doctorDocs)._id, operatory: pick(chairs)._id, operatoryLabel: pick(chairs).name,
         start, end, durationMinutes: 30, type: "treatment", procedures: [proc._id], chiefComplaint: proc.name,
-        status, source: pick(["phone", "walk_in", "online", "recall_campaign"]),
+        status, source: pick(["phone", "walk_in", "online", "recall_campaign", "portal"]),
         completedAt: status === "completed" ? end : undefined, noShow: status === "no_show",
         createdBy: owner._id,
       });
-      apptCount++;
+    }
+    // ~22% of patients carry a forward booking in the next fortnight.
+    if (chance(0.22)) {
+      const start = snap(nowMs + randInt(1, 14) * 86400000);
+      const end = new Date(start.getTime() + 30 * 60000);
+      const proc = pick(procDocs);
+      apptDocs.push({
+        clinicId, patient: patient._id, doctor: pick(doctorDocs)._id, operatory: pick(chairs)._id, operatoryLabel: pick(chairs).name,
+        start, end, durationMinutes: 30, type: "treatment", procedures: [proc._id], chiefComplaint: proc.name,
+        status: pick(["scheduled", "confirmed"]), source: pick(["phone", "online", "portal", "recall_campaign"]),
+        createdBy: owner._id,
+      });
     }
   }
-  logger.info(`Appointments: ${apptCount}`);
+  await AppointmentModel.insertMany(apptDocs);
+  logger.info(`Appointments: ${apptDocs.length} (per-patient history + forward book)`);
 
   // ---- Treatment plans across acceptance states ---------------------------
   // Deliberately build an unscheduled backlog of ₹8-15L via presented/partially-
@@ -178,7 +203,8 @@ export async function seedClinic(): Promise<string> {
   logger.info(`Treatment plans: ${planCount} · unscheduled backlog ≈ ₹${Math.round(backlogPaise / 100).toLocaleString("en-IN")}`);
 
   // ---- Invoices + payments across states ----------------------------------
-  let invCount = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const invoices: any[] = [];
   for (let i = 0; i < Math.round(60 * SCALE); i++) {
     const patient = pick(patients);
     const proc = pick(procDocs);
@@ -194,28 +220,101 @@ export async function seedClinic(): Promise<string> {
     else if (roll < 0.7) { const part = Math.round(total / 2); await PaymentModel.create({ clinicId, invoice: inv._id, patient: patient._id, amountPaise: part, mode: "upi", status: "success", date: inv.date }); inv.status = "partial"; }
     else if (new Date(inv.dueDate!).getTime() < Date.now()) inv.status = "overdue";
     await inv.save();
-    invCount++;
+    invoices.push(inv);
   }
-  logger.info(`Invoices: ${invCount}`);
+  logger.info(`Invoices: ${invoices.length}`);
+
+  // ---- Instalment plans (implants / ortho paid in parts) ------------------
+  // Live plans with a mixed paid/due/overdue schedule — feeds the receivables
+  // view and the overdue-reminder automation.
+  let instCount = 0;
+  for (let i = 0; i < Math.round(10 * SCALE); i++) {
+    const patient = pick(patients);
+    const total = R(randInt(60, 180) * 1000); // ₹60k–₹1.8L big-ticket treatment
+    const count = pick([3, 4, 6]);
+    const down = Math.round(total * 0.2);
+    const perInstal = Math.round((total - down) / count);
+    const startDaysAgo = randInt(20, 150);
+    const schedule = Array.from({ length: count }, (_, k) => {
+      const dueDate = daysAgo(startDaysAgo - k * 30);
+      const past = dueDate.getTime() < Date.now();
+      // Earlier instalments mostly paid; a couple slip to overdue.
+      const status = !past ? "pending" : chance(0.8) ? "paid" : "overdue";
+      return { sequence: k + 1, dueDate, amountPaise: perInstal, status };
+    });
+    const allPaid = schedule.every((s) => s.status === "paid");
+    await InstalmentPlanModel.create({
+      clinicId, patient: patient._id, totalPaise: total, downPaymentPaise: down, count, schedule,
+      status: allPaid ? "completed" : "active", createdBy: owner._id,
+    });
+    instCount++;
+  }
+  logger.info(`Instalment plans: ${instCount}`);
 
   // ---- Leads across stages ------------------------------------------------
+  // insertMany with timestamps:false so the historical createdAt survives (the
+  // base-fields timestamps plugin would otherwise stamp it "now", making
+  // time-to-first-contact meaningless). firstContactAt always follows createdAt.
   const LEAD_STAGES = ["new", "new", "contacted", "consult", "won", "lost"];
-  for (let i = 0; i < Math.round(50 * SCALE); i++) {
+  const leadDocs = Array.from({ length: Math.round(50 * SCALE) }, () => {
     const male = chance(0.5);
     const stage = pick(LEAD_STAGES);
-    await LeadModel.create({
+    const createdAt = daysAgo(randInt(1, 45));
+    const contactedMs = createdAt.getTime() + randInt(1, 96) * 3600000; // 1–96h later
+    const firstContactAt = stage !== "new" && contactedMs < Date.now() ? new Date(contactedMs) : undefined;
+    return {
       clinicId, name: `${male ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F)} ${pick(LAST_NAMES)}`, phone: phone(),
-      source: pick(["google", "instagram", "referral", "walk_in", "calculator"]), interest: pick(["Dental implants", "Clear aligners", "Root canal", "Smile makeover"]),
-      estimatedValuePaise: R(randInt(12, 210) * 1000), stage,
-      firstContactAt: stage !== "new" ? daysAgo(randInt(1, 20)) : undefined,
-      createdAt: daysAgo(randInt(0, 30)),
-    });
-  }
+      source: pick(["google", "instagram", "referral", "walk_in", "calculator", "website"]),
+      interest: pick(["Dental implants", "Clear aligners", "Root canal", "Smile makeover", "Teeth whitening"]),
+      estimatedValuePaise: R(randInt(12, 210) * 1000), stage, firstContactAt,
+      createdAt, updatedAt: createdAt,
+    };
+  });
+  // `timestamps: false` is honoured at runtime but absent from InsertManyOptions'
+  // types in this mongoose version — cast to keep the historical createdAt.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await LeadModel.insertMany(leadDocs as any[], { timestamps: false } as any);
+  logger.info(`Leads: ${leadDocs.length}`);
 
   // ---- Recalls ------------------------------------------------------------
   for (let i = 0; i < Math.round(30 * SCALE); i++) {
     await RecallModel.create({ clinicId, patient: pick(patients)._id, type: pick(["hygiene", "implant_review", "ortho", "post_op"]), dueDate: daysAgo(randInt(-10, 50)), intervalDays: 180, status: "pending", source: "auto" });
   }
+
+  // ---- Message history (WhatsApp threads for the inbox) -------------------
+  // A conversation per selected patient with a short back-and-forth so the
+  // unified inbox, session-window state and suppression layer have real data.
+  // Message createdAt is historical (insertMany timestamps:false) so threads
+  // order correctly. lastMessageAt drives the inbox sort.
+  const INBOUND = ["Hi, is the clinic open on Saturday?", "How much for a cleaning?", "Can I reschedule my appointment?", "Do you take UPI?", "Is Dr. Rohan available next week?", "My tooth is hurting, can I come today?"];
+  const OUTBOUND = ["Yes! We're open 9am–6pm on Saturdays.", "A scaling & polishing is ₹1,200. Shall I book you in?", "Of course — what day suits you?", "Yes, UPI/card/cash all work. See you then!", "He has a slot Tuesday 6:30pm — want it?", "Please come by 5pm, we'll fit you in."];
+  const conversationMsgs: Record<string, unknown>[] = [];
+  let convCount = 0;
+  const inboxPatients = patients.filter(() => chance(0.15)).slice(0, Math.round(40 * SCALE));
+  for (const patient of inboxPatients) {
+    const turns = randInt(1, 3);
+    const lastMs = daysAgo(randInt(0, 14)).getTime();
+    const startMs = lastMs - turns * 2 * 3600000;
+    const withinWindow = Date.now() - lastMs < 24 * 3600000;
+    const conv = await ConversationModel.create({
+      clinicId, patient: patient._id, channel: "whatsapp",
+      status: pick(["open", "pending", "resolved"]),
+      lastMessageAt: new Date(lastMs), unread: withinWindow && chance(0.5) ? randInt(1, 2) : 0,
+      sessionWindowExpiresAt: withinWindow ? new Date(lastMs + 24 * 3600000) : undefined,
+    });
+    for (let t = 0; t < turns; t++) {
+      const inAt = new Date(startMs + t * 2 * 3600000);
+      const outAt = new Date(inAt.getTime() + 20 * 60000);
+      conversationMsgs.push(
+        { clinicId, conversation: conv._id, direction: "in", channel: "whatsapp", content: pick(INBOUND), status: "delivered", timestamps: { deliveredAt: inAt }, createdAt: inAt, updatedAt: inAt },
+        { clinicId, conversation: conv._id, direction: "out", channel: "whatsapp", content: pick(OUTBOUND), status: "read", timestamps: { sentAt: outAt, readAt: new Date(outAt.getTime() + 5 * 60000) }, sentBy: owner._id, createdAt: outAt, updatedAt: outAt },
+      );
+    }
+    convCount++;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (conversationMsgs.length) await MessageModel.insertMany(conversationMsgs as any[], { timestamps: false } as any);
+  logger.info(`Conversations: ${convCount} · messages: ${conversationMsgs.length}`);
 
   // ---- Suppliers, inventory, lab ------------------------------------------
   const suppliers = await Promise.all([
