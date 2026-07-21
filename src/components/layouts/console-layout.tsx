@@ -8,27 +8,30 @@ import { useUIStore } from "@/hooks/use-ui-store";
 import { CommandPalette } from "@/components/common/command-palette";
 import { ToastHost } from "@/components/common/toast";
 import { PatientPreviewDrawer } from "@/components/common/patient-preview-drawer";
+import { NotificationsPanel } from "@/features/notifications/notifications-panel";
 
 const CREATE_ITEMS = [
-  { label: "New appointment", key: "A" },
-  { label: "New patient", key: "P" },
-  { label: "New invoice", key: "I" },
-  { label: "New lead", key: "L" },
+  { label: "New appointment", key: "A", to: "/app/calendar" },
+  { label: "New patient", key: "P", to: "/app/patients/new" },
+  { label: "New invoice", key: "I", to: "/app/invoices" },
+  { label: "New lead", key: "L", to: "/app/leads" },
 ];
 
 export function ConsoleLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { setPaletteOpen, showToast } = useUIStore();
+  const { setPaletteOpen } = useUIStore();
 
   const isActive = (match: string) => new RegExp(match).test(location.pathname);
+  const closeMenus = () => { setPlusOpen(false); setNotifOpen(false); };
 
   return (
     <div
       className="flex h-screen overflow-hidden bg-bg text-ink"
-      onClick={() => plusOpen && setPlusOpen(false)}
+      onClick={() => (plusOpen || notifOpen) && closeMenus()}
     >
       {/* Sidebar */}
       <nav
@@ -130,23 +133,23 @@ export function ConsoleLayout() {
             <span>{clinicConfig.branch}</span>
           </div>
 
-          <button
-            onClick={() =>
-              showToast(
-                "3 notifications — 12 reminders delivered · payment of ₹9,500 received · lab case due tomorrow",
-              )
-            }
-            title="Notifications"
-            className="relative w-8 h-8 grid place-items-center rounded-md cursor-pointer text-muted hover:bg-bg"
-          >
-            <Icon name="bell" size={17} />
-            <span className="absolute top-[5px] right-1.5 w-[7px] h-[7px] rounded-full bg-danger border-[1.5px] border-surface" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setPlusOpen(false); setNotifOpen((o) => !o); }}
+              title="Notifications"
+              className="relative w-8 h-8 grid place-items-center rounded-md cursor-pointer text-muted hover:bg-bg"
+            >
+              <Icon name="bell" size={17} />
+              <span className="absolute top-[5px] right-1.5 w-[7px] h-[7px] rounded-full bg-danger border-[1.5px] border-surface" />
+            </button>
+            <NotificationsPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+          </div>
 
           <div className="relative">
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                setNotifOpen(false);
                 setPlusOpen((o) => !o);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-on-primary text-[12.5px] font-semibold hover:bg-primary-hover"
@@ -162,7 +165,7 @@ export function ConsoleLayout() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setPlusOpen(false);
-                      showToast(`${pi.label} — form opens here`);
+                      navigate(pi.to);
                     }}
                     className="w-full flex items-center justify-between px-2.5 py-2 rounded-[7px] text-[12.5px] hover:bg-bg"
                   >
