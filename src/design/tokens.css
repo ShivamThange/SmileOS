@@ -124,3 +124,23 @@ a:hover {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Bottom-sheet slide-up for patient-facing surfaces (Portal / Treatment Plan). */
+@keyframes dc-sheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Gentle float for the site hero's floating info cards. */
+@keyframes dc-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}

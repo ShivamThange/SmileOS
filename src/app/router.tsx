@@ -1,26 +1,61 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ConsoleLayout } from "@/components/layouts/console-layout";
-import { PlaceholderScreen } from "@/components/common/placeholder-screen";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
 import { CalendarScreen } from "@/features/appointments/calendar-screen";
 import { RecoveryScreen } from "@/features/revenue/recovery-screen";
 import { LeadsScreen } from "@/features/leads/leads-screen";
 import { PatientsListScreen } from "@/features/patients/patients-list-screen";
 import { PatientRecordScreen } from "@/features/patients/patient-record-screen";
-import { SiteHome } from "@/features/public-site/site-home";
-import { PortalHome } from "@/features/portal/portal-home";
 
-/** Placeholder route element — the design's own pattern for undesigned screens. */
-const stub = (
-  title: string,
-  body: string,
-  cta = "Back to dashboard",
-  icon: Parameters<typeof PlaceholderScreen>[0]["icon"] = "revenue",
-) => <PlaceholderScreen icon={icon} title={title} body={body} cta={cta} ctaTo="/app" />;
+/*
+ * The public site, patient portal, cost calculator and treatment-plan present
+ * view are standalone entry points that don't share the console shell — they're
+ * lazily loaded so a receptionist opening the console never downloads them, and
+ * a patient opening /plan never downloads the console.
+ */
+const SiteHome = lazy(() => import("@/features/public-site/site-home").then((m) => ({ default: m.SiteHome })));
+const SiteScreen = lazy(() => import("@/features/public-site/site-screen").then((m) => ({ default: m.SiteScreen })));
+const PortalHome = lazy(() => import("@/features/portal/portal-home").then((m) => ({ default: m.PortalHome })));
+const TreatmentPlanScreen = lazy(() => import("@/features/treatment-plan/treatment-plan-screen").then((m) => ({ default: m.TreatmentPlanScreen })));
+const CostCalculatorScreen = lazy(() => import("@/features/cost-calculator/cost-calculator-screen").then((m) => ({ default: m.CostCalculatorScreen })));
+
+/** Suspense wrapper for the lazily-loaded standalone surfaces. */
+const patientSurface = (el: ReactNode) => (
+  <Suspense fallback={<div className="min-h-screen grid place-items-center bg-[#EFEBE3] text-[13px] text-[#8C887E] font-sans">Loading…</div>}>
+    {el}
+  </Suspense>
+);
+import { PlansListScreen } from "@/features/treatment-plan/plans-list-screen";
+import { PlanBuilderScreen } from "@/features/treatment-plan/plan-builder-screen";
+import { InvoicesScreen } from "@/features/revenue/invoices-screen";
+import { PaymentsScreen } from "@/features/revenue/payments-screen";
+import { PendingPaymentsScreen } from "@/features/revenue/pending-payments-screen";
+import { ExpensesScreen } from "@/features/revenue/expenses-screen";
+import { RecallsScreen } from "@/features/growth/recalls-screen";
+import { CampaignsScreen } from "@/features/growth/campaigns-screen";
+import { ReviewsScreen } from "@/features/growth/reviews-screen";
+import { InboxScreen } from "@/features/growth/inbox-screen";
+import { InventoryScreen } from "@/features/operations/inventory-screen";
+import { LabScreen } from "@/features/operations/lab-screen";
+import { SuppliersScreen } from "@/features/operations/suppliers-screen";
+import { StaffScreen } from "@/features/team/staff-screen";
+import { AttendanceScreen } from "@/features/team/attendance-screen";
+import { AnalyticsScreen } from "@/features/insight/analytics-screen";
+import { ClinicalQueueScreen } from "@/features/clinical/clinical-queue-screen";
+import { PrescriptionsScreen } from "@/features/clinical/prescriptions-screen";
+import { WaitlistScreen } from "@/features/appointments/waitlist-screen";
+import { CheckinScreen } from "@/features/appointments/checkin-screen";
+import { NewPatientScreen } from "@/features/patients/new-patient-screen";
+import { SettingsScreen } from "@/features/settings/settings-screen";
 
 export const router = createBrowserRouter([
-  { path: "/", element: <SiteHome /> },
-  { path: "/portal", element: <PortalHome /> },
+  { path: "/", element: patientSurface(<SiteScreen />) },
+  { path: "/hub", element: patientSurface(<SiteHome />) },
+  { path: "/portal", element: patientSurface(<PortalHome />) },
+  { path: "/plan", element: patientSurface(<TreatmentPlanScreen />) },
+  { path: "/plan/:id", element: patientSurface(<TreatmentPlanScreen />) },
+  { path: "/calculator", element: patientSurface(<CostCalculatorScreen />) },
 
   {
     path: "/app",
@@ -31,49 +66,50 @@ export const router = createBrowserRouter([
       // Schedule
       { path: "calendar", element: <CalendarScreen /> },
       { path: "appointments", element: <CalendarScreen /> },
-      { path: "waitlist", element: stub("Waitlist", "Patients waiting for an earlier slot. Slot them into a freed cancellation gap with one action.", "Open calendar", "schedule") },
-      { path: "check-in", element: stub("Check-in", "Today's arrivals and one-tap check-in for the front desk.", "Open calendar", "schedule") },
+      { path: "waitlist", element: <WaitlistScreen /> },
+      { path: "check-in", element: <CheckinScreen /> },
 
       // Patients
       { path: "patients", element: <PatientsListScreen /> },
-      { path: "patients/new", element: stub("New patient", "Create a patient record — the patient number is generated automatically.", "Back to list", "patients") },
+      { path: "patients/new", element: <NewPatientScreen /> },
       { path: "patients/:id", element: <PatientRecordScreen /> },
 
       // Clinical
-      { path: "clinical/queue", element: stub("Clinical queue", "Today's chairside worklist — checked-in patients in order, with waiting times and incomplete notes to finish.", "Back to dashboard", "clinical") },
-      { path: "clinical/prescriptions", element: stub("Prescriptions", "Write, sign and send prescriptions with a drug interaction and allergy cross-check.", "Back to dashboard", "clinical") },
+      { path: "clinical/queue", element: <ClinicalQueueScreen /> },
+      { path: "clinical/prescriptions", element: <PrescriptionsScreen /> },
 
       // Revenue
       { path: "revenue/unscheduled", element: <RecoveryScreen /> },
-      { path: "revenue/pending-payments", element: stub("Pending payments", "Outstanding receivables with ageing buckets — ₹64,200 under 30 days · ₹48,250 older.", "Back to dashboard") },
-      { path: "invoices", element: stub("Invoices", "Invoices, payments, instalment schedules and the day's collections will live here. Three bills are awaiting payment.", "Back to dashboard") },
-      { path: "payments", element: stub("Payments", "A chronological ledger of money received, daily close-of-day reconciliation, and refunds.", "Back to dashboard") },
-      { path: "expenses", element: stub("Expenses", "Track clinic expenses so profitability reports tell the whole story.", "Back to dashboard") },
-      { path: "treatment-plans", element: stub("Treatment plans", "Plans across every acceptance state, each opening the builder — with a Present to Patient action.", "Back to dashboard") },
+      { path: "revenue/pending-payments", element: <PendingPaymentsScreen /> },
+      { path: "invoices", element: <InvoicesScreen /> },
+      { path: "payments", element: <PaymentsScreen /> },
+      { path: "expenses", element: <ExpensesScreen /> },
+      { path: "treatment-plans", element: <PlansListScreen /> },
+      { path: "treatment-plans/:id", element: <PlanBuilderScreen /> },
 
       // Growth
       { path: "leads", element: <LeadsScreen /> },
       { path: "leads/:id", element: <LeadsScreen /> },
-      { path: "recalls", element: stub("Recalls", "Patients due or overdue for a recall — hygiene, ortho, implant review, post-op. Segment and run bulk WhatsApp campaigns.", "Back to dashboard", "growth") },
-      { path: "campaigns", element: stub("Campaigns", "Recall, reactivation, recovery and promotional campaigns with per-recipient outcomes and attributed revenue.", "Back to dashboard", "growth") },
-      { path: "reviews", element: stub("Reviews", "Ask a private rating first, route satisfied patients to Google, and catch unhappy ones for service recovery.", "Back to dashboard", "growth") },
-      { path: "inbox", element: stub("Unified inbox", "Every WhatsApp, SMS and email conversation in one three-pane view with the linked patient in context.", "Back to dashboard", "growth") },
+      { path: "recalls", element: <RecallsScreen /> },
+      { path: "campaigns", element: <CampaignsScreen /> },
+      { path: "reviews", element: <ReviewsScreen /> },
+      { path: "inbox", element: <InboxScreen /> },
 
       // Operations
-      { path: "lab", element: stub("Lab tracking", "Lab work in transit and stock levels. Two items are below their reorder point.", "Back to dashboard", "operations") },
-      { path: "inventory", element: stub("Inventory", "Item stock, reorder levels, expiry and value, with low-stock and near-expiry alerts.", "Back to dashboard", "operations") },
-      { path: "suppliers", element: stub("Suppliers", "Dental supplies, labs and equipment vendors with terms and ratings.", "Back to dashboard", "operations") },
+      { path: "lab", element: <LabScreen /> },
+      { path: "inventory", element: <InventoryScreen /> },
+      { path: "suppliers", element: <SuppliersScreen /> },
 
       // Team
-      { path: "staff", element: stub("Team", "Doctors, staff, rosters and permissions.", "Back to dashboard", "team") },
-      { path: "attendance", element: stub("Attendance", "Staff check-in / check-out log and hours.", "Back to dashboard", "team") },
+      { path: "staff", element: <StaffScreen /> },
+      { path: "attendance", element: <AttendanceScreen /> },
 
       // Insight
-      { path: "analytics", element: stub("Insight", "Reports with a consistent frame: filters, one chart, the table behind it, and an export.", "Back to dashboard", "insight") },
+      { path: "analytics", element: <AnalyticsScreen /> },
 
       // Settings
-      { path: "settings", element: stub("Settings", "Clinic details, branding, fees and templates. A rebrand should take an hour, not a week.", "Back to dashboard", "settings") },
-      { path: "settings/*", element: stub("Settings", "Clinic details, branding, fees and templates. A rebrand should take an hour, not a week.", "Back to dashboard", "settings") },
+      { path: "settings", element: <SettingsScreen /> },
+      { path: "settings/*", element: <SettingsScreen /> },
 
       { path: "*", element: <Navigate to="/app" replace /> },
     ],
