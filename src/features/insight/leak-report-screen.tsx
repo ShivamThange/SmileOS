@@ -79,7 +79,7 @@ export function LeakReportScreen() {
     const idleMonth = Math.round(idleHours * perChairHour * WORKING_DAYS_PER_MONTH);
 
     // ---- 3. Appointments not kept -----------------------------------------
-    const noShows = appointments.filter((a) => ["noshow", "cancelled"].includes(a.status));
+    const noShows = appointments.filter((a) => ["no_show", "cancelled"].includes(a.status));
     const noShowValueToday = noShows.reduce((s, a) => s + inferFeePaise(a.proc), 0);
     const noShowMonth = noShowValueToday * WORKING_DAYS_PER_MONTH;
 

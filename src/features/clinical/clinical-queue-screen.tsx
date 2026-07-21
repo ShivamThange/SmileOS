@@ -23,13 +23,13 @@ export function ClinicalQueueScreen() {
   const queue = useMemo(
     () =>
       appointments
-        .filter((a) => ["arrived", "inchair", "confirmed"].includes(a.status))
-        .sort((a, b) => (a.status === "inchair" ? -1 : b.status === "inchair" ? 1 : a.start - b.start)),
+        .filter((a) => ["checked_in", "in_progress", "confirmed"].includes(a.status))
+        .sort((a, b) => (a.status === "in_progress" ? -1 : b.status === "in_progress" ? 1 : a.start - b.start)),
     [],
   );
-  const inChair = queue.filter((a) => a.status === "inchair").length;
-  const waiting = queue.filter((a) => a.status === "arrived").length;
-  const incompleteNotes = appointments.filter((a) => a.status === "done").length - 6; // a couple outstanding
+  const inChair = queue.filter((a) => a.status === "in_progress").length;
+  const waiting = queue.filter((a) => a.status === "checked_in").length;
+  const incompleteNotes = appointments.filter((a) => a.status === "completed").length - 6; // a couple outstanding
 
   return (
     <div className="max-w-[1240px] mx-auto flex flex-col gap-3.5">
@@ -53,14 +53,14 @@ export function ClinicalQueueScreen() {
             <div className="text-[12.5px] truncate">{a.proc}</div>
             <div className="text-[12px] text-muted font-mono">{fmtHour(a.start)}</div>
             <div>
-              {a.status === "inchair"
+              {a.status === "in_progress"
                 ? <span className="text-[10.5px] font-bold px-2 py-[3px] rounded-[5px]" style={{ background: "#20614E", color: "#F7F6F3" }}>In chair</span>
-                : <span className={a.status === "arrived" ? "text-warning text-[12px] font-semibold" : "text-muted text-[12px]"}>{WAITS[a.status]}</span>}
+                : <span className={a.status === "checked_in" ? "text-warning text-[12px] font-semibold" : "text-muted text-[12px]"}>{WAITS[a.status]}</span>}
             </div>
             <div className="flex justify-end gap-1.5">
-              {a.status === "inchair"
+              {a.status === "in_progress"
                 ? <Button size="sm" variant="tint" onClick={() => showToast(`Completing ${a.name} — chart & notes open`)}>Complete</Button>
-                : a.status === "arrived"
+                : a.status === "checked_in"
                   ? <Button size="sm" variant="primary" onClick={() => showToast(`Seating ${a.name} in ${a.chair}`)}>Seat</Button>
                   : <Button size="sm" variant="secondary" onClick={() => showToast(`${a.name} not yet arrived`)}>Await</Button>}
               {/*

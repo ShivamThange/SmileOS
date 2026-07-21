@@ -12,7 +12,7 @@ import { waitlist, appointments } from "@/lib/mock-data";
 export function WaitlistScreen() {
   const navigate = useNavigate();
   const { showToast } = useUIStore();
-  const freedGaps = appointments.filter((a) => a.status === "cancelled" || a.status === "noshow").length;
+  const freedGaps = appointments.filter((a) => a.status === "cancelled" || a.status === "no_show").length;
 
   return (
     <div className="max-w-[1100px] mx-auto flex flex-col gap-3.5">

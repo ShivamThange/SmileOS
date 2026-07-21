@@ -47,7 +47,7 @@ export function SettleSheet() {
   const todayLines = useMemo(() => {
     if (!patient) return [];
     return appointments
-      .filter((a) => a.name === patient.name && ["done", "inchair", "arrived"].includes(a.status))
+      .filter((a) => a.name === patient.name && ["completed", "in_progress", "checked_in"].includes(a.status))
       .map((a) => ({ id: a.id, label: a.proc, paise: inferFeePaise(a.proc) }))
       .filter((l) => l.paise > 0);
   }, [patient]);

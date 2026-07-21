@@ -98,7 +98,7 @@ export const useMessageLog = create<MessageLogState>((set, get) => ({
 function hoursToNextAppointment(patientName?: string): number | undefined {
   if (!patientName) return undefined;
   const appt = appointments.find(
-    (a) => a.name === patientName && ["booked", "confirmed"].includes(a.status),
+    (a) => a.name === patientName && ["scheduled", "confirmed"].includes(a.status),
   );
   if (!appt) return undefined;
   const nowHour = new Date().getHours() + new Date().getMinutes() / 60;

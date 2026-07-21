@@ -17,13 +17,13 @@ export interface StatusStyle {
 }
 
 export const appointmentStatusStyle: Record<AppointmentStatus, StatusStyle> = {
-  booked: { bg: "#FFFFFF", border: "#DDDBD3", color: "#21201C", sub: "#6E6C64", label: "Booked", labelColor: "#6E6C64" },
+  scheduled: { bg: "#FFFFFF", border: "#DDDBD3", color: "#21201C", sub: "#6E6C64", label: "Booked", labelColor: "#6E6C64" },
   confirmed: { bg: "#EAF1EE", border: "#C7DAD1", color: "#21201C", sub: "#5B7A6E", label: "Confirmed", labelColor: "#20614E" },
-  arrived: { bg: "#FAF3E7", border: "#E5D2AC", color: "#21201C", sub: "#8A6B33", label: "Arrived", labelColor: "#9A6215" },
-  inchair: { bg: "#20614E", border: "#17493A", color: "#F7F6F3", sub: "#BFD5CC", label: "In the chair", labelColor: "#CBDDD5" },
-  done: { bg: "#F4F3EF", border: "#E6E4DE", color: "#98968C", sub: "#B0AEA4", label: "Done", labelColor: "#98968C" },
+  checked_in: { bg: "#FAF3E7", border: "#E5D2AC", color: "#21201C", sub: "#8A6B33", label: "Arrived", labelColor: "#9A6215" },
+  in_progress: { bg: "#20614E", border: "#17493A", color: "#F7F6F3", sub: "#BFD5CC", label: "In the chair", labelColor: "#CBDDD5" },
+  completed: { bg: "#F4F3EF", border: "#E6E4DE", color: "#98968C", sub: "#B0AEA4", label: "Done", labelColor: "#98968C" },
   cancelled: { bg: "transparent", border: "#E6E4DE", color: "#98968C", sub: "#B0AEA4", label: "Cancelled", labelColor: "#98968C", hatch: true },
-  noshow: { bg: "#FBEFED", border: "#EFC7C2", color: "#21201C", sub: "#B07770", label: "No-show", labelColor: "#A8342A" },
+  no_show: { bg: "#FBEFED", border: "#EFC7C2", color: "#21201C", sub: "#B07770", label: "No-show", labelColor: "#A8342A" },
 };
 
 export interface ChipStyle {
