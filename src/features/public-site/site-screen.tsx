@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLocalToast, LocalToast } from "@/components/common/local-toast";
 import { clinicConfig } from "@/config/clinic";
+import { requestAppointment } from "./api";
 
 /*
  * Public Site — the marketing storefront that earns the call (Site.dc.html).
@@ -114,6 +115,38 @@ export function SiteScreen() {
   const whatsapp = () => show("Opening WhatsApp — +91 98220 10000");
   const cases = ALL_CASES.filter((c) => caseFilter === "All" || c.cat === caseFilter).slice(0, 3);
 
+  /*
+   * The booking form is the funnel's first real step: it creates a website lead
+   * the desk sees in the Console (spec §7 · Site → book → lead). It never
+   * pretends to confirm a slot — the desk calls back — so the copy promises a
+   * call, not a time.
+   */
+  const [booking, setBooking] = useState({ name: "", phone: "", about: "General check-up", preferredDay: "" });
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [booked, setBooked] = useState(false);
+  const setField = (k: keyof typeof booking) => (e: { target: { value: string } }) =>
+    setBooking((b) => ({ ...b, [k]: e.target.value }));
+
+  async function submitBooking() {
+    if (bookingBusy || booked) return;
+    const name = booking.name.trim();
+    const phone = booking.phone.trim();
+    if (name.length < 2 || phone.replace(/\D/g, "").length < 10) {
+      show("Please add your name and a 10-digit mobile number.");
+      return;
+    }
+    setBookingBusy(true);
+    try {
+      await requestAppointment({ name, phone, about: booking.about, preferredDay: booking.preferredDay.trim() || undefined });
+      setBooked(true);
+      show("Thank you — we'll call you shortly to confirm.");
+    } catch {
+      show("Something went wrong. Please call us on 020 4890 1234.");
+    } finally {
+      setBookingBusy(false);
+    }
+  }
+
   return (
     <div className="font-sans text-[#26241F] bg-[#F3EFE7] pb-[76px]">
       {/* Header */}
@@ -131,6 +164,7 @@ export function SiteScreen() {
               ? <Link key={n.label} to={n.to} className="text-muted-strong hover:text-primary no-underline">{n.label}</Link>
               : <a key={n.label} href={n.href} className="text-muted-strong hover:text-primary no-underline">{n.label}</a>)}
           </nav>
+          <Link to="/portal/login" className="text-[13px] font-medium text-muted-strong hover:text-primary no-underline max-sm:hidden">Patient login</Link>
           <div onClick={scrollToBook} className="text-[13px] font-semibold px-5 py-2.5 rounded-[10px] bg-primary text-on-primary cursor-pointer hover:bg-primary-hover">Book a visit</div>
         </div>
       </header>
@@ -413,16 +447,22 @@ export function SiteScreen() {
           </div>
           <div>
             <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }}>
-              <Field label="Your name"><input placeholder="Full name" className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary" /></Field>
-              <Field label="Phone"><input placeholder="10-digit mobile" className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary" /></Field>
+              <Field label="Your name"><input value={booking.name} onChange={setField("name")} disabled={booked} placeholder="Full name" className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary disabled:bg-[#F1EEE7]" /></Field>
+              <Field label="Phone"><input value={booking.phone} onChange={setField("phone")} disabled={booked} inputMode="tel" placeholder="10-digit mobile" className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary disabled:bg-[#F1EEE7]" /></Field>
               <Field label="What's it about?">
-                <select className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary">
+                <select value={booking.about} onChange={setField("about")} disabled={booked} className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary disabled:bg-[#F1EEE7]">
                   <option>General check-up</option><option>Pain / emergency</option><option>Implants</option><option>Braces / aligners</option><option>Smile makeover</option>
                 </select>
               </Field>
-              <Field label="Preferred day"><input placeholder="e.g. this Saturday" className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary" /></Field>
+              <Field label="Preferred day"><input value={booking.preferredDay} onChange={setField("preferredDay")} disabled={booked} placeholder="e.g. this Saturday" className="font-sans text-sm px-3.5 py-3 border-[1.5px] border-[#D8D1C1] rounded-[11px] bg-white outline-none focus:border-primary disabled:bg-[#F1EEE7]" /></Field>
             </div>
-            <div onClick={() => show("Thank you — we'll call you shortly to confirm.")} className="mt-4 text-center text-[15px] font-semibold py-[15px] rounded-xl bg-primary text-on-primary cursor-pointer hover:bg-primary-hover">Request my appointment</div>
+            <div
+              onClick={submitBooking}
+              aria-disabled={bookingBusy || booked}
+              className="mt-4 text-center text-[15px] font-semibold py-[15px] rounded-xl bg-primary text-on-primary cursor-pointer hover:bg-primary-hover aria-disabled:opacity-60 aria-disabled:cursor-default"
+            >
+              {booked ? "✓ Request received — we'll call you" : bookingBusy ? "Sending…" : "Request my appointment"}
+            </div>
           </div>
         </div>
       </section>
@@ -431,6 +471,11 @@ export function SiteScreen() {
       <footer className="border-t border-[#E7E0D2]">
         <div className="max-w-[1140px] mx-auto px-6 py-[26px] flex justify-between items-center gap-4 flex-wrap text-[12.5px] text-[#8C887E]">
           <div className="flex items-center gap-[9px]"><div className="w-6 h-6 rounded-[7px] bg-primary text-on-primary grid place-items-center text-xs font-bold">{clinicConfig.shortInitial}</div>{clinicConfig.name} · Westend Centre, ITI Road, Aundh, Pune</div>
+          <nav className="flex items-center gap-5">
+            <span onClick={scrollToBook} className="cursor-pointer hover:text-primary">Book a visit</span>
+            <Link to="/calculator" className="no-underline text-[#8C887E] hover:text-primary">Cost estimate</Link>
+            <Link to="/portal/login" className="no-underline text-[#8C887E] hover:text-primary">Patient login</Link>
+          </nav>
           <div>Dental Council of India Reg. · © 2026</div>
         </div>
       </footer>

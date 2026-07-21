@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useLocalToast, LocalToast } from "@/components/common/local-toast";
 import { clinicConfig } from "@/config/clinic";
 import { ChartScrubber } from "@/features/clinical/chart-scrubber";
+import { usePatientSession } from "@/hooks/use-patient-session";
+import { session } from "@/lib/api";
+import { logout as apiLogout } from "@/features/auth/api";
 
 /*
  * Patient Portal — the at-home experience a patient carries in their pocket
@@ -28,9 +31,17 @@ const VISITS = [
 
 export function PortalHome() {
   const { toast, show } = useLocalToast();
+  const navigate = useNavigate();
   const [tab, setTab] = useState("home");
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const openSheet = (title: string, body: string, cta = "Got it") => setSheet({ title, body, cta });
+
+  async function handleSignOut() {
+    await apiLogout(); // best-effort server-side revoke
+    session.clear();
+    usePatientSession.getState().clear();
+    navigate("/", { replace: true });
+  }
 
   const tiles = [
     { label: "My records", sub: "X-rays, notes, reports", glyph: "▧", badge: "", go: () => openSheet("Your records", "Your X-rays, treatment notes and lab reports, all in one place. Tap any image to view it full-screen with zoom.", "Close") },
@@ -150,6 +161,13 @@ export function PortalHome() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Spine back to the storefront — the Portal is one end of the funnel,
+             not a dead end; a patient can always step back to the public site. */}
+          <div className="col-span-full flex items-center justify-between gap-4 flex-wrap pt-1 text-[12.5px] text-[#8C887E]">
+            <Link to="/" className="no-underline text-[#8C887E] hover:text-primary">← {clinicConfig.name} website</Link>
+            <button onClick={handleSignOut} className="text-[#8C887E] hover:text-primary">Sign out</button>
           </div>
         </div>
       </div>
