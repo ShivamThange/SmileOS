@@ -1,5 +1,6 @@
 import type { Types } from "mongoose";
 import { UserModel, type UserDoc } from "../../models/user.model";
+import { PatientModel, type PatientDoc } from "../../models/patient.model";
 import { OtpModel } from "../../models/otp.model";
 import { SessionModel } from "../../models/session.model";
 import { resolveClinic } from "../../services/clinic-context";
@@ -108,6 +109,85 @@ export async function loginPassword(email: string, password: string, ctx: Ctx): 
   return { tokens, user };
 }
 
+/* --------------------------------------------------------- patient portal --- */
+
+/** Consume a one-time code for an email + purpose, or throw a mapped error. */
+async function consumeOtp(email: string, purpose: OtpPurpose, code: string): Promise<void> {
+  const otp = await OtpModel.findOne({ identifier: email, purpose, consumed: false }).sort({ createdAt: -1 });
+  if (!otp) throw new AppError(ERROR_CODES.AUTH_OTP_EXPIRED, "No pending code — request a new one");
+  if (otp.expiresAt.getTime() < Date.now()) throw new AppError(ERROR_CODES.AUTH_OTP_EXPIRED, "Code expired");
+  if (otp.attempts >= otp.maxAttempts) throw new AppError(ERROR_CODES.AUTH_OTP_INVALID, "Too many attempts — request a new code");
+  if (otp.codeHash !== sha256(code)) {
+    otp.attempts += 1;
+    await otp.save();
+    throw new AppError(ERROR_CODES.AUTH_OTP_INVALID, "Incorrect code");
+  }
+  otp.consumed = true;
+  await otp.save();
+}
+
+/**
+ * Patient portal OTP login (spec §3.2 / T1.3). Issues a PATIENT-audience token
+ * so a patient token can never address a Console endpoint. First successful
+ * login activates portal access (registration-implies-login) for an existing
+ * patient record. Self-registration from scratch (no record) is out of scope
+ * here — patients are provisioned from the Console / booking flow (T4.x).
+ */
+export async function verifyPatientOtp(identifier: string, code: string, ctx: Ctx): Promise<{ tokens: TokenPair; patient: PatientDoc }> {
+  const email = identifier.toLowerCase();
+  await consumeOtp(email, "login", code);
+
+  const clinic = await resolveClinic(ctx.clinicSlug);
+  const patient = await PatientModel.findOne({ clinicId: clinic._id, email });
+  if (!patient) throw new AppError(ERROR_CODES.NOT_FOUND, "No patient record for that email");
+
+  if (!patient.portalEnabled) {
+    patient.portalEnabled = true;
+    await patient.save();
+  }
+
+  const tokens = await issuePatientSession(patient, ctx);
+  return { tokens, patient };
+}
+
+async function issuePatientSession(patient: PatientDoc, ctx: Ctx): Promise<TokenPair> {
+  const family = opaqueToken(12);
+  const refreshToken = generateRefreshToken();
+  const expiresAt = refreshExpiry();
+  const session = await SessionModel.create({
+    clinicId: patient.clinicId,
+    patient: patient._id,
+    audience: TOKEN_AUDIENCE.patient,
+    family,
+    tokenHash: sha256(refreshToken),
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+    expiresAt,
+  });
+  const accessToken = signAccessToken({
+    sub: String(patient._id),
+    cid: String(patient.clinicId),
+    role: "patient",
+    sid: String(session._id),
+    pv: 0,
+    pid: String(patient._id),
+    audience: TOKEN_AUDIENCE.patient,
+  });
+  return { accessToken, refreshToken, expiresAt };
+}
+
+/** Portal /me-style shape returned on login. */
+export function serialisePatient(patient: PatientDoc): Record<string, unknown> {
+  return {
+    id: String(patient._id),
+    clinicId: String(patient.clinicId),
+    patientNumber: patient.patientNumber,
+    name: [patient.firstName, patient.lastName].filter(Boolean).join(" "),
+    email: patient.email ?? null,
+    phone: patient.phone,
+  };
+}
+
 export async function setPassword(userId: string, clinicId: string, newPassword: string): Promise<void> {
   const user = await UserModel.findOne({ _id: userId, clinicId });
   if (!user) throw errors.notFound("User");
@@ -156,8 +236,22 @@ export async function refresh(rawToken: string, ctx: Ctx): Promise<TokenPair> {
   }
   if (session.expiresAt.getTime() < Date.now()) throw new AppError(ERROR_CODES.AUTH_EXPIRED, "Session expired");
 
-  const user = await UserModel.findOne({ _id: session.user, active: true });
-  if (!user) throw errors.authInvalid("Account not found");
+  const isPatient = session.audience === TOKEN_AUDIENCE.patient;
+
+  // Resolve the principal for this session's audience (staff → User, portal → Patient).
+  let principalId: string;
+  let claims: Omit<Parameters<typeof signAccessToken>[0], "sid">;
+  if (isPatient) {
+    const patient = await PatientModel.findOne({ _id: session.patient });
+    if (!patient) throw errors.authInvalid("Account not found");
+    principalId = String(patient._id);
+    claims = { sub: principalId, cid: String(patient.clinicId), role: "patient", pv: 0, pid: principalId, audience: TOKEN_AUDIENCE.patient };
+  } else {
+    const user = await UserModel.findOne({ _id: session.user, active: true });
+    if (!user) throw errors.authInvalid("Account not found");
+    principalId = String(user._id);
+    claims = { sub: principalId, cid: String(user.clinicId), role: user.role as UserRole, pv: 0, audience: session.audience as TokenAudience };
+  }
 
   // Rotate: revoke this token, issue a new one in the same family.
   const newRaw = generateRefreshToken();
@@ -168,7 +262,7 @@ export async function refresh(rawToken: string, ctx: Ctx): Promise<TokenPair> {
 
   const next = await SessionModel.create({
     clinicId: session.clinicId,
-    user: user._id,
+    ...(isPatient ? { patient: session.patient } : { user: session.user }),
     audience: session.audience,
     family: session.family,
     tokenHash: sha256(newRaw),
@@ -177,14 +271,7 @@ export async function refresh(rawToken: string, ctx: Ctx): Promise<TokenPair> {
     expiresAt: refreshExpiry(),
   });
 
-  const accessToken = signAccessToken({
-    sub: String(user._id),
-    cid: String(user.clinicId),
-    role: user.role as UserRole,
-    sid: String(next._id),
-    pv: 0,
-    audience: session.audience as TokenAudience,
-  });
+  const accessToken = signAccessToken({ ...claims, sid: String(next._id) });
   return { accessToken, refreshToken: newRaw, expiresAt: next.expiresAt };
 }
 

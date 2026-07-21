@@ -41,6 +41,32 @@ export function passwordLogin(email: string, password: string): Promise<LoginRes
   return api.post<LoginResult>("/auth/login", { email, password }, { skipAuth: true });
 }
 
+/* ── Patient portal login (OTP only; patient token audience) ──────────────── */
+
+export interface PortalPatient {
+  id: string;
+  clinicId: string;
+  patientNumber: string;
+  name: string;
+  email: string | null;
+  phone: string;
+}
+export interface PatientLoginResult {
+  accessToken: string;
+  patient: PortalPatient;
+}
+
+/** Request a login code for a patient email (same endpoint as staff — it only
+ * sends a code; the verify step decides the audience). */
+export function requestPatientOtp(email: string): Promise<{ sent: boolean }> {
+  return api.post<{ sent: boolean }>("/auth/otp/request", { email, purpose: "login" }, { skipAuth: true });
+}
+
+/** Verify the patient OTP → issues a patient-audience session. */
+export function verifyPatientOtp(email: string, code: string): Promise<PatientLoginResult> {
+  return api.post<PatientLoginResult>("/auth/portal/otp/verify", { email, purpose: "login", code }, { skipAuth: true });
+}
+
 /** Silent refresh — exchanges the httpOnly refresh cookie for a new access
  * token. Returns null if there is no valid session (a fresh/guest visitor). */
 export async function refreshSession(): Promise<{ accessToken: string } | null> {

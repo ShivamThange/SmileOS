@@ -58,10 +58,12 @@ import { CheckinScreen } from "@/features/appointments/checkin-screen";
 import { NewPatientScreen } from "@/features/patients/new-patient-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { LoginScreen } from "@/features/auth/login-screen";
+import { PortalLogin } from "@/features/portal/portal-login";
 
 export const router = createBrowserRouter([
   { path: "/", element: patientSurface(<SiteScreen />) },
   { path: "/login", element: <LoginScreen /> },
+  { path: "/portal/login", element: <PortalLogin /> },
   { path: "/hub", element: patientSurface(<SiteHome />) },
   { path: "/portal", element: patientSurface(<PortalHome />) },
   { path: "/plan", element: patientSurface(<TreatmentPlanScreen />) },

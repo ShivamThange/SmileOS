@@ -8,7 +8,9 @@ import { baseFieldsPlugin, type BaseFields } from "./plugins/base-fields";
  */
 
 const sessionSchema = new Schema({
-  user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  // Exactly one of user (staff) / patient (portal) is set, per audience.
+  user: { type: Schema.Types.ObjectId, ref: "User", index: true },
+  patient: { type: Schema.Types.ObjectId, ref: "Patient", index: true },
   audience: { type: String, required: true }, // staff | patient
   family: { type: String, required: true, index: true },
   tokenHash: { type: String, required: true, index: true },

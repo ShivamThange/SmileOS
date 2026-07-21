@@ -20,6 +20,10 @@ const loginLimit = rateLimit({ windowMs: 15 * 60_000, max: 10, bucket: "login", 
 
 authRouter.post("/otp/request", requireDb, perIpHour, perEmail, validate({ body: otpRequestSchema }), asyncHandler(ctrl.requestOtp));
 authRouter.post("/otp/verify", requireDb, verifyLimit, validate({ body: otpVerifySchema }), asyncHandler(ctrl.verifyOtp));
+// Patient portal login: same OTP request, a distinct verify that issues a
+// patient-audience session (spec T1.3). Kept invite-safe — verify only succeeds
+// for an existing patient record.
+authRouter.post("/portal/otp/verify", requireDb, verifyLimit, validate({ body: otpVerifySchema }), asyncHandler(ctrl.verifyPatientOtp));
 authRouter.post("/login", requireDb, loginLimit, validate({ body: loginSchema }), asyncHandler(ctrl.login));
 authRouter.post("/refresh", requireDb, asyncHandler(ctrl.refresh));
 authRouter.post("/logout", asyncHandler(ctrl.logout));

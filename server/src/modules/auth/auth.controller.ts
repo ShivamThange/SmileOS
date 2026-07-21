@@ -45,6 +45,13 @@ export async function login(req: Request, res: Response): Promise<Response> {
   return ok(res, { accessToken: tokens.accessToken, user: authService.serialiseUser(user) });
 }
 
+/** Patient portal OTP verify → issues a patient-audience session (spec T1.3). */
+export async function verifyPatientOtp(req: Request, res: Response): Promise<Response> {
+  const { tokens, patient } = await authService.verifyPatientOtp(req.body.email, req.body.code, ctxFrom(req));
+  setRefreshCookie(res, tokens.refreshToken, tokens.expiresAt);
+  return ok(res, { accessToken: tokens.accessToken, patient: authService.serialisePatient(patient) });
+}
+
 export async function refresh(req: Request, res: Response): Promise<Response> {
   const raw = req.cookies?.[REFRESH_COOKIE] ?? req.body?.refreshToken;
   if (!raw) throw errors.authRequired();
