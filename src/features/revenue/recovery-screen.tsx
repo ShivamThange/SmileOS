@@ -1,59 +1,470 @@
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Panel } from "@/components/ui/card";
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { Meter } from "@/components/common/meter";
 import { UrgencyBadge } from "@/components/common/status-badge";
+import { MedicalAlertBadge } from "@/components/common/medical-alert-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { inr, inrFromRupees } from "@/lib/format";
 import { recoveryRows as seedRows, patients } from "@/lib/mock-data";
 import { useUIStore } from "@/hooks/use-ui-store";
+import { useDeskStore } from "@/hooks/use-desk-store";
+import { waLink, telLink } from "@/lib/whatsapp";
+import { SendGuard, SuppressionDot } from "@/components/common/send-guard";
+import { buildQueue, OUTCOMES, DAILY_QUEUE_SIZE, type Outcome, type ScoredRow } from "./recovery-queue";
+import { cn } from "@/lib/utils";
 import type { RecoveryRow } from "@/types";
 
-const GRID = "34px 1.55fr 1.5fr 0.85fr 0.95fr 0.85fr 1.35fr 1fr 168px";
+/*
+ * Recovery — a finite daily queue, not an infinite backlog.
+ *
+ * Unscheduled treatment is the largest recoverable revenue pool in any dental
+ * practice, and every competitor ships it as a list of three hundred and
+ * seventy-two names next to a number with six figures in it. That number
+ * induces paralysis; the list gets abandoned in week two.
+ *
+ * So this screen shows eight calls. It is ordered by recoverability rather
+ * than recency, every card carries the context and the opening line already
+ * written, every outcome is one tap, and the queue empties. Emptying is the
+ * whole feature — it is the only thing on this screen that changes behaviour.
+ *
+ * The full list still exists behind a lens, because Kavita reconciling on a
+ * Friday genuinely does want all of it.
+ */
+
+const GRID = "1.55fr 1.5fr 0.85fr 0.95fr 0.85fr 1.35fr 1fr 150px";
+
+/** Recovered this week — the number the front desk otherwise never gets. */
+const RECOVERED_THIS_WEEK_BASE = 3840000; // ₹38,400 in paise
+
+export function RecoveryScreen() {
+  const { showToast, openPatientPreview } = useUIStore();
+  const { openBooking } = useDeskStore();
+
+  const [lens, setLens] = useState<"queue" | "all">("queue");
+  const [rows, setRows] = useState<RecoveryRow[]>(seedRows);
+  const [worked, setWorked] = useState<Record<string, Outcome>>({});
+  const [recoveredPaise, setRecoveredPaise] = useState(RECOVERED_THIS_WEEK_BASE);
+  const [openCard, setOpenCard] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  const queue = useMemo(() => buildQueue(rows, patients, DAILY_QUEUE_SIZE), [rows]);
+  const remaining = queue.filter((s) => !worked[s.row.id]);
+  const doneCount = queue.length - remaining.length;
+  const inReachPaise = remaining.reduce((sum, s) => sum + s.row.valuePaise, 0);
+
+  const record = (s: ScoredRow, outcome: Outcome) => {
+    setWorked((w) => ({ ...w, [s.row.id]: outcome }));
+    setOpenCard(null);
+
+    if (outcome === "booked") {
+      setRecoveredPaise((v) => v + s.row.valuePaise);
+      showToast(`${s.patient.name} booked — ${inr(s.row.valuePaise)} recovered`);
+    } else if (outcome === "not-interested") {
+      /*
+       * Suppressed for six months, never deleted. Nobody should fall out of the
+       * system because of one bad day.
+       */
+      setRows((rs) =>
+        rs.map((r) => (r.id === s.row.id ? { ...r, declined: true, lastSub: "Not now — ask again in 6 months" } : r)),
+      );
+      showToast(`${s.patient.name} suppressed for six months — not deleted`);
+    } else {
+      showToast(`Logged: ${OUTCOMES.find((o) => o.id === outcome)?.label} — ${s.patient.name}`);
+    }
+  };
+
+  return (
+    <div className="max-w-[1240px] mx-auto flex flex-col gap-3.5">
+      <PageHeader
+        title="Recovery"
+        subtitle="Advised care that never got scheduled. Work the queue top to bottom — it ends."
+        aside={
+          <div className="flex gap-1 p-0.5 rounded-md border border-border bg-bg-content">
+            <LensButton active={lens === "queue"} onClick={() => setLens("queue")}>
+              Today's queue
+            </LensButton>
+            <LensButton active={lens === "all"} onClick={() => setLens("all")}>
+              Everything
+            </LensButton>
+          </div>
+        }
+      />
+
+      {lens === "queue" ? (
+        <>
+          {/* The finite headline. Not "₹8.4L across 372 patients". */}
+          <Panel className="p-4 flex items-center gap-5 max-md:flex-col max-md:items-start">
+            <div className="flex flex-col gap-1">
+              <div className="text-[26px] font-bold tracking-[-0.025em]">
+                {remaining.length === 0 ? (
+                  <span className="text-primary">Queue's clear.</span>
+                ) : (
+                  <>
+                    <span className="tnum">{remaining.length}</span> call
+                    {remaining.length === 1 ? "" : "s"} today.
+                  </>
+                )}
+              </div>
+              <div className="text-[13px] text-muted">
+                {remaining.length === 0
+                  ? `You've worked all ${queue.length} today. Nothing more is worth chasing until tomorrow's diagnoses.`
+                  : `${inr(inReachPaise)} in reach. Ordered by what's actually recoverable, not by date.`}
+              </div>
+            </div>
+
+            <div className="flex-1" />
+
+            <div className="flex flex-col gap-1.5 min-w-[190px]">
+              <div className="flex justify-between text-[11.5px]">
+                <span className="text-muted">Worked today</span>
+                <span className="font-semibold tnum">
+                  {doneCount} of {queue.length}
+                </span>
+              </div>
+              <Meter value={queue.length ? (doneCount / queue.length) * 100 : 100} height={6} />
+              <div className="flex justify-between text-[11.5px] pt-1">
+                <span className="text-muted">Recovered this week</span>
+                <span className="font-bold tnum text-primary">{inr(recoveredPaise)}</span>
+              </div>
+            </div>
+          </Panel>
+
+          {/* The cards */}
+          {remaining.length === 0 ? (
+            <Panel>
+              <EmptyState
+                icon="check"
+                title="That's the lot"
+                body={`${inr(recoveredPaise)} recovered this week. The queue refills as new plans are deferred — come back tomorrow.`}
+                cta="See everything anyway"
+                onCta={() => setLens("all")}
+              />
+            </Panel>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {remaining.map((s, i) => (
+                <ContactCard
+                  key={s.row.id}
+                  scored={s}
+                  rank={i + 1}
+                  open={openCard === s.row.id}
+                  draft={drafts[s.row.id] ?? s.draft}
+                  onDraftChange={(v) => setDrafts((d) => ({ ...d, [s.row.id]: v }))}
+                  onToggle={() => setOpenCard((c) => (c === s.row.id ? null : s.row.id))}
+                  onOpenPatient={() => openPatientPreview(s.patient.id)}
+                  onBook={() => openBooking({ phone: s.patient.phone, patientId: s.patient.id, request: s.row.proc })}
+                  onOutcome={(o) => record(s, o)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Worked list — visible so the day's effort is legible. */}
+          {doneCount > 0 && (
+            <Panel className="px-4 py-3 flex flex-col gap-1.5">
+              <div className="text-[11px] font-bold tracking-[0.07em] text-muted-2">
+                WORKED TODAY
+              </div>
+              {queue
+                .filter((s) => worked[s.row.id])
+                .map((s) => (
+                  <div key={s.row.id} className="flex items-center gap-2.5 text-[12.5px]">
+                    <Icon name="check" size={12} className="text-primary" />
+                    <span className="font-semibold">{s.patient.name}</span>
+                    <span className="text-muted-2 flex-1 truncate">{s.row.proc}</span>
+                    <span className="text-muted">
+                      {OUTCOMES.find((o) => o.id === worked[s.row.id])?.label}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setWorked((w) => {
+                          const next = { ...w };
+                          delete next[s.row.id];
+                          return next;
+                        })
+                      }
+                      className="text-[11px] text-muted-2 hover:text-ink"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                ))}
+            </Panel>
+          )}
+        </>
+      ) : (
+        <EverythingLens rows={rows} onOpenPatient={openPatientPreview} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// A person, not a row
+// ---------------------------------------------------------------------------
+
+function ContactCard({
+  scored,
+  rank,
+  open,
+  draft,
+  onDraftChange,
+  onToggle,
+  onOpenPatient,
+  onBook,
+  onOutcome,
+}: {
+  scored: ScoredRow;
+  rank: number;
+  open: boolean;
+  draft: string;
+  onDraftChange: (v: string) => void;
+  onToggle: () => void;
+  onOpenPatient: () => void;
+  onBook: () => void;
+  onOutcome: (o: Outcome) => void;
+}) {
+  const { row, patient, engagement, reason } = scored;
+
+  return (
+    <Panel className={cn("overflow-hidden transition-colors", open && "border-border-strong")}>
+      <div className="flex items-start gap-3 px-4 py-3.5">
+        <span className="w-[22px] text-[12px] font-bold tnum text-muted-3 pt-1.5 text-right shrink-0">
+          {rank}
+        </span>
+
+        <button onClick={onOpenPatient} className="shrink-0">
+          <Avatar name={patient.name} size={38} />
+        </button>
+
+        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <button onClick={onOpenPatient} className="text-[14px] font-semibold">
+              {patient.name}
+            </button>
+            <span className="text-[11.5px] text-muted-2 font-mono">{patient.agesex}</span>
+            <MedicalAlertBadge alert={patient.alert} variant="chip" />
+            <UrgencyBadge urgency={row.urgency} />
+            <SuppressionDot patientId={patient.id} kind="recovery" />
+          </div>
+
+          <div className="text-[13px]">
+            <span className="font-semibold">{row.proc}</span>
+            <span className="text-muted-2"> · {row.tooth}</span>
+            <span className="text-muted"> · advised {row.planned}, {row.ago}</span>
+          </div>
+
+          {/* Why this one is at the top. */}
+          <div className="text-[12px] text-muted-strong leading-snug">{reason}</div>
+
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <Signal
+              icon="clock"
+              label={
+                engagement.daysSinceContact >= 99
+                  ? "Never contacted"
+                  : `Last contact ${engagement.daysSinceContact}d ago`
+              }
+            />
+            <Signal
+              icon="spark"
+              label={
+                engagement.planViews === 0
+                  ? "Plan never opened"
+                  : `Plan opened ${engagement.planViews}×`
+              }
+              hot={engagement.planViews >= 3}
+            />
+            <Signal
+              icon="message"
+              label={engagement.everReplied ? "Replies to messages" : "Has never replied"}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <div className="text-[19px] font-bold tnum tracking-[-0.02em]">{inr(row.valuePaise)}</div>
+          <div className="flex gap-1.5">
+            <a
+              href={telLink(patient.phone)}
+              className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-md border border-primary-tint-border bg-primary-tint text-primary hover:bg-primary-tint-border"
+            >
+              <Icon name="phone" size={12} />
+              Call
+            </a>
+            <button
+              onClick={onToggle}
+              className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1.5 rounded-md border border-border bg-surface hover:bg-bg"
+            >
+              <Icon name="message" size={12} />
+              Message
+            </button>
+            <Button size="sm" variant="secondary" onClick={onBook}>
+              Book
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* The message, already written. She edits three words and sends. */}
+      {open && (
+        <div className="px-4 pb-3.5 pt-1 flex flex-col gap-2 animate-dc-row">
+          <div className="grid grid-cols-2 gap-3.5 max-md:grid-cols-1">
+            <Detail label={`CLINICAL FINDING · ${row.doctor}`}>{row.finding}</Detail>
+            <Detail label="WHY THEY HELD OFF" italic>
+              "{row.reason}"
+            </Detail>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[10.5px] font-bold tracking-[0.06em] text-muted-2">
+              DRAFT — EDIT BEFORE SENDING
+            </div>
+            <textarea
+              value={draft}
+              onChange={(e) => onDraftChange(e.target.value)}
+              rows={3}
+              className="text-[12.5px] leading-relaxed px-3 py-2 border border-border rounded-md bg-bg-content outline-none focus:border-primary resize-y"
+            />
+            {/*
+             * Sending goes through the suppression layer, which knows what the
+             * recall engine and the plan follow-up have already sent today.
+             */}
+            <SendGuard
+              patientId={patient.id}
+              kind="recovery"
+              phone={patient.phone}
+              message={draft}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* One tap, and it leaves the queue. */}
+      <div className="flex items-center gap-1.5 px-4 py-2 border-t border-border-faint bg-bg-content flex-wrap">
+        <span className="text-[10.5px] font-bold tracking-[0.06em] text-muted-2 mr-1">
+          OUTCOME
+        </span>
+        {OUTCOMES.map((o) => (
+          <button
+            key={o.id}
+            onClick={() => onOutcome(o.id)}
+            className={cn(
+              "text-[11.5px] font-semibold px-2.5 py-1 rounded-md border transition-colors",
+              o.tone === "primary"
+                ? "border-primary bg-primary text-on-primary hover:bg-primary-hover"
+                : o.tone === "muted"
+                  ? "border-border bg-surface text-muted-2 hover:text-danger hover:border-danger-border"
+                  : "border-border bg-surface text-ink hover:border-border-strong",
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function Signal({
+  icon,
+  label,
+  hot,
+}: {
+  icon: "clock" | "spark" | "message";
+  label: string;
+  hot?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-[5px] border",
+        hot
+          ? "bg-warning-bg border-warning-border text-warning font-semibold"
+          : "bg-bg-content border-border text-muted",
+      )}
+    >
+      <Icon name={icon} size={10} strokeWidth={1.6} />
+      {label}
+    </span>
+  );
+}
+
+function Detail({
+  label,
+  italic,
+  children,
+}: {
+  label: string;
+  italic?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="text-[10.5px] font-bold tracking-[0.06em] text-muted-2">{label}</div>
+      <div className={cn("text-[12.5px] leading-snug text-ink", italic && "italic")}>{children}</div>
+    </div>
+  );
+}
+
+function LensButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "text-[12px] font-semibold px-3 py-1.5 rounded-[6px] transition-colors",
+        active ? "bg-surface text-ink shadow-card-hover" : "text-muted hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// The full list — for the Friday reconciliation, not the daily work
+// ---------------------------------------------------------------------------
 
 const summary = [
   { label: "Advised care unscheduled", value: inrFromRupees(482600), sub: "Across 23 patients" },
   { label: "Recovered · last 30 days", value: inrFromRupees(126400), sub: "9 plans booked" },
   { label: "Recovery rate", value: "31%", sub: "Of value followed up" },
-  { label: "Due today", value: "3", sub: `${inrFromRupees(104500)} in today's follow-ups` },
+  { label: "Queue completion", value: "78%", sub: "Calls made of calls queued" },
 ];
 
-const patientById = (id: string) => patients.find((p) => p.id === id)!;
-
-export function RecoveryScreen() {
-  const { showToast, openPatientPreview } = useUIStore();
-  const [rows, setRows] = useState<RecoveryRow[]>(seedRows);
+function EverythingLens({
+  rows,
+  onOpenPatient,
+}: {
+  rows: RecoveryRow[];
+  onOpenPatient: (id: string) => void;
+}) {
   const [urg, setUrg] = useState("All");
   const [type, setType] = useState("All");
-  const [dueToday, setDueToday] = useState(false);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const visible = useMemo(() => {
-    const grp = (r: RecoveryRow) => (r.due === "today" || r.due === "overdue" ? 0 : 1);
-    return rows
-      .filter(
-        (r) =>
-          (urg === "All" || r.urgency === urg) &&
-          (type === "All" || r.type === type) &&
-          (!dueToday || r.due === "today" || r.due === "overdue"),
-      )
-      .slice()
-      .sort((a, b) => grp(a) - grp(b) || b.valuePaise - a.valuePaise);
-  }, [rows, urg, type, dueToday]);
-
-  const selIds = Object.keys(selected).filter((k) => selected[k]);
-  const selValue = rows.filter((r) => selIds.includes(r.id)).reduce((a, r) => a + r.valuePaise, 0);
-
-  const patch = (id: string, upd: Partial<RecoveryRow>) =>
-    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...upd } : r)));
+  const visible = useMemo(
+    () =>
+      rows
+        .filter((r) => (urg === "All" || r.urgency === urg) && (type === "All" || r.type === type))
+        .slice()
+        .sort((a, b) => b.valuePaise - a.valuePaise),
+    [rows, urg, type],
+  );
 
   return (
-    <div className="max-w-[1240px] mx-auto flex flex-col gap-3.5">
-      <PageHeader
-        title="Recovery worklist"
-        subtitle="Patients whose advised care never got scheduled. Start at the top, work down."
-      />
-
+    <>
       <div className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2">
         {summary.map((s) => (
           <Panel key={s.label} className="p-3.5 flex flex-col gap-1">
@@ -64,7 +475,6 @@ export function RecoveryScreen() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-2.5 flex-wrap">
         <select
           value={urg}
@@ -88,31 +498,18 @@ export function RecoveryScreen() {
           <option value="Cosmetic">Cosmetic</option>
           <option value="Surgery">Surgery</option>
         </select>
-        <button
-          onClick={() => setDueToday((d) => !d)}
-          className="text-[12.5px] font-semibold px-3 py-1.5 rounded-md border"
-          style={{
-            background: dueToday ? "var(--primary)" : "var(--surface)",
-            color: dueToday ? "var(--on-primary)" : "var(--ink)",
-            borderColor: dueToday ? "var(--primary)" : "var(--border)",
-          }}
-        >
-          Due today
-        </button>
         <div className="flex-1" />
         <div className="text-xs text-muted">
-          Sorted by value · due-today first ·{" "}
-          <span className="font-semibold text-ink">{visible.length} plans shown</span>
+          <span className="font-semibold text-ink">{visible.length} plans</span> · this is the
+          reconciliation view, not the day's work
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div
           className="grid gap-2.5 items-center px-3.5 py-[9px] border-b border-border bg-bg-content text-[10.5px] font-bold tracking-[0.06em] text-muted-2"
           style={{ gridTemplateColumns: GRID }}
         >
-          <span />
           <span>PATIENT</span>
           <span>RECOMMENDED</span>
           <span className="text-right">VALUE</span>
@@ -126,174 +523,83 @@ export function RecoveryScreen() {
         {visible.length === 0 ? (
           <EmptyState
             title="Nothing matches these filters"
-            body="Every plan in this view has been actioned. Widen the filters, or come back after tomorrow's diagnoses."
+            body="Widen the filters, or go back to today's queue — that's where the work is."
           />
         ) : (
           visible.map((r) => {
-            const p = patientById(r.patientId);
-            const sel = !!selected[r.id];
+            const p = patients.find((x) => x.id === r.patientId)!;
             const overdue = r.due === "overdue";
             const today = r.due === "today";
             return (
-              <div key={r.id} className="border-b border-border-faint" style={{ opacity: r.declined ? 0.45 : 1 }}>
-                <div
-                  className="grid gap-2.5 items-center px-3.5 py-[11px] text-[12.5px] hover:bg-bg-content"
-                  style={{ gridTemplateColumns: GRID, background: sel ? "#F3F7F5" : "transparent" }}
-                >
-                  <button
-                    onClick={() => setSelected((s) => ({ ...s, [r.id]: !s[r.id] }))}
-                    className="w-4 h-4 rounded-sm border-[1.5px] grid place-items-center text-white text-[11px] font-bold"
-                    style={{
-                      borderColor: sel ? "var(--primary)" : "var(--border-strong)",
-                      background: sel ? "var(--primary)" : "var(--surface)",
-                    }}
-                    aria-label="Select"
-                  >
-                    {sel ? "✓" : ""}
-                  </button>
-
-                  <button className="text-left min-w-0" onClick={() => openPatientPreview(r.patientId)}>
-                    <div className="font-semibold truncate">{p.name}</div>
-                    <div className="text-[11px] text-muted-2 font-mono">{p.phone}</div>
-                  </button>
-
-                  <button
-                    className="text-left min-w-0"
-                    onClick={() => setExpanded((e) => (e === r.id ? null : r.id))}
-                  >
-                    <div className="font-medium truncate">{r.proc}</div>
-                    <div className="text-[11px] text-muted-2">{r.tooth}</div>
-                  </button>
-
-                  <div className="text-right font-bold tnum">{inr(r.valuePaise)}</div>
-
-                  <div>
-                    <div className="text-xs">{r.planned}</div>
-                    <div className="text-[11px] text-muted-2">{r.ago}</div>
-                  </div>
-
-                  <div><UrgencyBadge urgency={r.urgency} /></div>
-
-                  <div className="min-w-0">
-                    <div className="text-xs truncate">{r.lastContact}</div>
-                    <div className="text-[11px] text-muted-2 truncate">{r.lastSub || "—"}</div>
-                  </div>
-
-                  <div
-                    className="text-xs"
-                    style={{
-                      fontWeight: overdue || today ? 700 : 500,
-                      color: r.declined
-                        ? "var(--muted-2)"
-                        : overdue
-                          ? "var(--danger)"
-                          : today
-                            ? "var(--warning)"
-                            : "var(--muted)",
-                    }}
-                  >
-                    {r.declined ? "Declined" : overdue ? r.dueText || "Overdue" : today ? "Due today" : r.due}
-                  </div>
-
-                  <div className="flex gap-1.5 justify-end">
-                    <button
-                      onClick={() => showToast(`Calling ${p.name} — ${p.phone}`)}
-                      className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-[7px] border border-primary-tint-border bg-primary-tint text-primary hover:bg-primary-tint-border"
-                    >
-                      Call
-                    </button>
-                    <button
-                      onClick={() => showToast(`WhatsApp draft opened — ${r.proc} · ${inr(r.valuePaise)}`)}
-                      className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-[7px] border border-border bg-surface hover:bg-bg"
-                    >
-                      Msg
-                    </button>
-                    <button
-                      onClick={() => showToast(`Booking started for ${p.name} — ${r.proc}`)}
-                      className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-[7px] border border-border bg-surface hover:bg-bg"
-                    >
-                      Book
-                    </button>
-                  </div>
+              <div
+                key={r.id}
+                data-row
+                tabIndex={0}
+                className="grid gap-2.5 items-center px-3.5 py-[11px] text-[12.5px] hover:bg-bg-content outline-none border-b border-border-faint"
+                style={{ gridTemplateColumns: GRID, opacity: r.declined ? 0.45 : 1 }}
+              >
+                <button className="text-left min-w-0" onClick={() => onOpenPatient(r.patientId)}>
+                  <div className="font-semibold truncate">{p.name}</div>
+                  <div className="text-[11px] text-muted-2 font-mono">{p.phone}</div>
+                </button>
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{r.proc}</div>
+                  <div className="text-[11px] text-muted-2">{r.tooth}</div>
                 </div>
-
-                {expanded === r.id && (
-                  <div
-                    className="grid grid-cols-[1fr_1fr_auto] gap-4 px-3.5 pt-3 pb-3.5 pl-[58px] bg-bg-content animate-dc-fade"
+                <div className="text-right font-bold tnum">{inr(r.valuePaise)}</div>
+                <div>
+                  <div className="text-xs">{r.planned}</div>
+                  <div className="text-[11px] text-muted-2">{r.ago}</div>
+                </div>
+                <div>
+                  <UrgencyBadge urgency={r.urgency} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs truncate">{r.lastContact}</div>
+                  <div className="text-[11px] text-muted-2 truncate">{r.lastSub || "—"}</div>
+                </div>
+                <div
+                  className="text-xs"
+                  style={{
+                    fontWeight: overdue || today ? 700 : 500,
+                    color: r.declined
+                      ? "var(--muted-2)"
+                      : overdue
+                        ? "var(--danger)"
+                        : today
+                          ? "var(--warning)"
+                          : "var(--muted)",
+                  }}
+                >
+                  {r.declined
+                    ? "Suppressed"
+                    : overdue
+                      ? r.dueText || "Overdue"
+                      : today
+                        ? "Due today"
+                        : r.due}
+                </div>
+                <div className="flex gap-1.5 justify-end">
+                  <a
+                    href={telLink(p.phone)}
+                    className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-[7px] border border-primary-tint-border bg-primary-tint text-primary"
                   >
-                    <div className="flex flex-col gap-1">
-                      <div className="text-[10.5px] font-bold tracking-[0.06em] text-muted-2">
-                        CLINICAL FINDING · {r.doctor}
-                      </div>
-                      <div className="text-[12.5px] leading-snug text-ink">{r.finding}</div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="text-[10.5px] font-bold tracking-[0.06em] text-muted-2">
-                        WHY THE PATIENT HELD OFF
-                      </div>
-                      <div className="text-[12.5px] leading-snug text-ink italic">"{r.reason}"</div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 justify-center">
-                      <button
-                        onClick={() => {
-                          patch(r.id, { lastContact: "Today — logged", lastSub: "Attempt recorded" });
-                          showToast(`Contact attempt logged for ${p.name}`);
-                        }}
-                        className="text-[11.5px] font-semibold px-3 py-1.5 rounded-[7px] border border-border bg-surface hover:bg-bg"
-                      >
-                        Log attempt
-                      </button>
-                      <button
-                        onClick={() => {
-                          patch(r.id, { due: "27 Jul", dueText: undefined });
-                          setExpanded(null);
-                          showToast("Follow-up moved to 27 Jul");
-                        }}
-                        className="text-[11.5px] font-semibold px-3 py-1.5 rounded-[7px] border border-border bg-surface hover:bg-bg"
-                      >
-                        Push a week
-                      </button>
-                      <button
-                        onClick={() => {
-                          patch(r.id, { declined: true });
-                          setExpanded(null);
-                          showToast(`${p.name} marked declined — reason recorded`);
-                        }}
-                        className="text-[11.5px] font-semibold px-3 py-1.5 rounded-[7px] border border-border bg-surface text-danger hover:bg-danger-bg"
-                      >
-                        Mark declined
-                      </button>
-                    </div>
-                  </div>
-                )}
+                    Call
+                  </a>
+                  <a
+                    href={waLink(p.phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11.5px] font-semibold px-2.5 py-1.5 rounded-[7px] border border-border bg-surface hover:bg-bg"
+                  >
+                    Msg
+                  </a>
+                </div>
               </div>
             );
           })
         )}
       </div>
-
-      {/* Bulk action bar */}
-      {selIds.length > 0 && (
-        <div className="sticky bottom-4 self-center flex items-center gap-3.5 bg-ink text-on-primary rounded-lg px-4 py-2.5 shadow-toast animate-dc-toast">
-          <span className="text-[12.5px]">
-            <b>{selIds.length} selected</b> · {inr(selValue)} in advised care
-          </span>
-          <button
-            onClick={() => {
-              showToast(
-                `Group message drafted for ${selIds.length} patients — ${inr(selValue)} in advised care`,
-              );
-              setSelected({});
-            }}
-            className="text-xs font-semibold px-3.5 py-1.5 rounded-md bg-primary hover:bg-primary-lift"
-          >
-            Message this group
-          </button>
-          <button onClick={() => setSelected({})} className="text-xs text-muted-2 hover:text-on-primary">
-            Clear
-          </button>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
