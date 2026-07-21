@@ -9,6 +9,7 @@ import { errorHandler } from "./middleware/error-handler";
 import { notFound } from "./middleware/not-found";
 import { logger } from "./config/logger";
 import { healthRouter } from "./modules/health/health.routes";
+import { webhooksRouter } from "./webhooks/webhooks.routes";
 import { apiRouter } from "./routes";
 
 /*
@@ -37,12 +38,17 @@ export function createApp(): Express {
 
   app.use(cors({ origin: corsOrigins.length ? corsOrigins : true, credentials: true }));
   app.use(helmet());
-  app.use(express.json({ limit: "2mb" }));
+  // Capture the raw body so webhook handlers can verify HMAC signatures.
+  app.use(express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => { (req as unknown as { rawBody?: string }).rawBody = buf.toString("utf8"); },
+  }));
   app.use(express.urlencoded({ extended: true, limit: "2mb" }));
   app.use(cookieParser());
 
-  // Health is unauthenticated and unlimited.
+  // Health and webhooks are unauthenticated (webhooks are signature-verified).
   app.use("/", healthRouter);
+  app.use("/webhooks", webhooksRouter);
 
   // Everything under the API prefix is rate-limited and versioned.
   app.use(env.API_PREFIX, globalLimiter, apiRouter);

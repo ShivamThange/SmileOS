@@ -4,6 +4,7 @@ import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { connectDb, disconnectDb } from "./config/db";
 import { getRedis, disconnectRedis } from "./config/redis";
+import { startJobs, stopJobs } from "./jobs/workers";
 
 /*
  * Entry point. Best-effort connects to Mongo and Redis (degraded mode if
@@ -12,6 +13,8 @@ import { getRedis, disconnectRedis } from "./config/redis";
 async function main(): Promise<void> {
   await connectDb();
   getRedis(); // initialise the shared client (queues + rate limiting)
+  // Give Redis a moment to connect before deciding whether to start workers.
+  setTimeout(() => startJobs(), 1500);
 
   const app = createApp();
   const server = app.listen(env.PORT, () => {
@@ -21,6 +24,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, shutting down`);
     server.close(async () => {
+      await stopJobs();
       await disconnectRedis();
       await disconnectDb();
       process.exit(0);
