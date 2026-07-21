@@ -86,12 +86,12 @@ export function deriveAlerts(mh: MedicalHistory | null): string[] {
   if (!mh) return [];
   const alerts: string[] = [];
   for (const a of mh.allergies ?? []) if (a.substance) alerts.push(`Allergy: ${a.substance}${a.severity === "high" ? " (severe)" : ""}`);
-  const c = mh.conditions ?? {};
+  const c = (mh.conditions ?? {}) as Record<string, unknown>;
   if (c.diabetes) alerts.push("Type 2 diabetes");
   if (c.hypertension) alerts.push("Hypertension");
   if (c.cardiac) alerts.push("Cardiac condition");
   if (c.bleedingDisorder) alerts.push("Bleeding disorder");
-  if (mh.pregnancy?.isPregnant) alerts.push("Pregnant");
+  if ((mh.pregnancy as { isPregnant?: boolean } | undefined)?.isPregnant) alerts.push("Pregnant");
   return alerts;
 }
 
