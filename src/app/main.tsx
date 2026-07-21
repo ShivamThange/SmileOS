@@ -3,21 +3,25 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query";
+import { applyCachedBranding } from "@/lib/branding";
+import { AppBoot } from "./app-boot";
 import { router } from "./router";
 import "@/design/tokens.css";
 
 /*
- * Boot: in production this runs the §8.1 sequence (silent refresh → fetch
- * user + clinic config in parallel → apply brand tokens before first paint →
- * hydrate permissions → register feature-flag-filtered routes). Here we mount
- * the router directly with the static clinic config. The QueryClient is the
- * shared, error-aware one from @/lib/query (spec §6.1).
+ * Boot (spec §8.1). AppBoot runs the real sequence: silent refresh → fetch
+ * user + clinic in parallel → apply brand tokens → hydrate the session, then
+ * render. We re-apply the *cached* branding synchronously here, before the
+ * first paint, so a returning user never flashes the default palette.
  */
+applyCachedBranding();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AppBoot>
+        <RouterProvider router={router} />
+      </AppBoot>
     </QueryClientProvider>
   </StrictMode>,
 );
