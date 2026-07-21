@@ -3,12 +3,17 @@ import { clinicConfig } from "@/config/clinic";
 
 /*
  * Entry hub — mirrors the design project's DentalOS.dc.html landing: one
- * identity, three faces. The public Site and patient Portal are designed in
- * the Claude Design project (Site/Calculator/TreatmentPlan/Portal.dc.html) but
- * are out of scope for this Console-first pass, so they link through as
- * "coming next" rather than being invented here.
+ * identity, three faces. Every surface below is now built and clickable; the
+ * public Site lives at "/", this navigator at "/hub".
  */
 const groups = [
+  {
+    label: "THE PUBLIC — earns the call",
+    items: [
+      { to: "/", glyph: "❋", title: "Public site", desc: "Warm, honest storefront — treatments, doctors, reviews, booking.", bg: "#F0E9DB", live: true },
+      { to: "/calculator", glyph: "▦", title: "Cost calculator", desc: "Three questions to an honest price range, with EMI and assumptions.", bg: "#F0E9DB", live: true },
+    ],
+  },
   {
     label: "THE CONSOLE — staff back-office",
     items: [
@@ -22,7 +27,8 @@ const groups = [
   {
     label: "THE PATIENT — decisions & self-service",
     items: [
-      { to: "/portal", glyph: "⌂", title: "Patient portal", desc: "Next visit, what's owed, plans awaiting a decision — phone-shaped.", bg: "#F0E9DB", live: false },
+      { to: "/portal", glyph: "⌂", title: "Patient portal", desc: "Next visit, what's owed, plans awaiting a decision — phone-shaped.", bg: "#F0E9DB", live: true },
+      { to: "/plan", glyph: "◉", title: "Treatment plan", desc: "The plan presented on the patient's own teeth, staged, with EMI.", bg: "#F0E9DB", live: true },
     ],
   },
 ];
@@ -46,8 +52,8 @@ export function SiteHome() {
         </div>
         <p className="text-[15px] text-muted-strong leading-relaxed max-w-[600px] mt-[18px]">
           One operating system, three faces — the public site that earns a call, the console
-          reception lives in, and the portal a patient carries in their pocket. This pass ships
-          the Console in full; every screen below is real and clickable.
+          reception lives in, and the portal a patient carries in their pocket. Every screen below
+          is real and clickable.
         </p>
 
         {groups.map((g) => (

@@ -1,26 +1,154 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useLocalToast, LocalToast } from "@/components/common/local-toast";
 import { clinicConfig } from "@/config/clinic";
 
-/**
- * Patient Portal — designed in Portal.dc.html; out of scope for this
- * Console-first pass. Minimal branded placeholder that links back to the hub.
+/*
+ * Patient Portal — the at-home experience a patient carries in their pocket
+ * (Portal.dc.html). Next visit up top, then what's owed, a plan awaiting their
+ * unhurried decision, quick tiles, and recent visits. Warm and low-pressure —
+ * bottom sheets stand in for the deeper sections.
  */
+
+interface Sheet { title: string; body: string; cta: string; }
+
+const TABS: [string, string, string][] = [
+  ["home", "Home", "⌂"],
+  ["records", "Records", "▧"],
+  ["messages", "Messages", "✉"],
+  ["profile", "Profile", "◐"],
+];
+
+const VISITS = [
+  { date: "24 Jun", title: "CBCT scan & consultation", doctor: "Dr. Meher", amount: "₹4,000" },
+  { date: "10 Jan", title: "Scaling & polishing", doctor: "Dr. Patil", amount: "₹1,800" },
+  { date: "2 Nov", title: "Routine check-up", doctor: "Dr. Meher", amount: "Free" },
+];
+
 export function PortalHome() {
+  const { toast, show } = useLocalToast();
+  const [tab, setTab] = useState("home");
+  const [sheet, setSheet] = useState<Sheet | null>(null);
+  const openSheet = (title: string, body: string, cta = "Got it") => setSheet({ title, body, cta });
+
+  const tiles = [
+    { label: "My records", sub: "X-rays, notes, reports", glyph: "▧", badge: "", go: () => openSheet("Your records", "Your X-rays, treatment notes and lab reports, all in one place. Tap any image to view it full-screen with zoom.", "Close") },
+    { label: "Messages", sub: "Chat with the clinic", glyph: "✉", badge: "2", go: () => openSheet("Messages", "Message the clinic directly — questions about your treatment, timings, or anything at all. We usually reply within a couple of hours during clinic time.", "Open messages") },
+    { label: "Payments", sub: "Bills & receipts", glyph: "₹", badge: "", go: () => openSheet("Payments", "Every invoice, payment and instalment in one place. Download a receipt any time — useful for insurance or reimbursement.", "Close") },
+    { label: "Book a visit", sub: "New appointment", glyph: "🗓", badge: "", go: () => openSheet("Book a visit", "Tell us what it's about and pick a rough time. We'll confirm the exact slot by WhatsApp within the hour.", "Continue") },
+  ];
+
   return (
-    <div className="min-h-screen bg-bg text-ink grid place-items-center px-5">
-      <div className="max-w-[420px] text-center flex flex-col items-center gap-3">
-        <div className="w-11 h-11 rounded-lg bg-primary text-on-primary grid place-items-center text-xl font-bold">
-          {clinicConfig.shortInitial}
+    <div className="min-h-screen font-sans text-[#26241F] bg-[#EFEBE3] flex justify-center">
+      <div className="w-full max-w-[1080px] bg-[#F3EFE7] min-h-screen flex flex-col relative">
+        {/* Header */}
+        <div className="px-5 pt-[26px] pb-3.5 flex items-center gap-3 flex-wrap">
+          <div className="w-[38px] h-[38px] rounded-[10px] bg-primary text-on-primary grid place-items-center text-base font-bold flex-none">{clinicConfig.shortInitial}</div>
+          <div className="flex-1">
+            <div className="text-[13px] text-[#8C887E]">Good afternoon,</div>
+            <div className="text-[17px] font-semibold tracking-[-0.01em]">Sunita Deshmukh</div>
+          </div>
+          <div className="flex gap-1.5 bg-[#FBF9F4] border border-[#E2DCCF] rounded-xl p-1 max-sm:hidden">
+            {TABS.map(([id, label, glyph]) => {
+              const sel = tab === id;
+              return (
+                <div key={id} onClick={() => { setTab(id); if (id !== "home") show(`${label} — full section opens here`); }}
+                  className="flex items-center gap-[7px] px-3.5 py-2 rounded-[9px] cursor-pointer"
+                  style={{ background: sel ? "#20614E" : "transparent", color: sel ? "#F7F6F3" : "#8C887E" }}>
+                  <span className="text-sm">{glyph}</span>
+                  <span className="text-[12.5px]" style={{ fontWeight: sel ? 700 : 500 }}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div onClick={() => openSheet("Your profile", "Contact details, medical history and notification settings live here. You can update your phone number and how we reach you.", "Close")}
+            className="w-[38px] h-[38px] rounded-full bg-primary-tint text-primary grid place-items-center text-[13px] font-bold cursor-pointer border border-primary-tint-border">SD</div>
         </div>
-        <h1 className="font-serif text-2xl font-medium m-0">Patient Portal</h1>
-        <p className="text-[13px] text-muted leading-relaxed">
-          The at-home patient experience — next visit, what's owed, and treatment plans awaiting a
-          decision — is designed and comes next. The Console ships first.
-        </p>
-        <Link to="/" className="text-[12.5px] font-semibold px-4 py-2 rounded-md bg-primary text-on-primary hover:bg-primary-hover">
-          Back to hub
-        </Link>
+
+        {/* Body */}
+        <div className="flex-1 px-5 pt-1.5 pb-[50px] grid gap-3.5 items-start" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))" }}>
+          {/* Next visit */}
+          <div className="bg-primary text-[#F4F1EA] rounded-[18px] px-[26px] py-[22px] animate-dc-fade-up col-span-full flex flex-col">
+            <div className="flex justify-between items-baseline">
+              <span className="text-[11.5px] font-semibold tracking-[0.06em] text-[#9DC7B7]">YOUR NEXT VISIT</span>
+              <span className="text-[11.5px] text-[#9DC7B7]">in 3 days</span>
+            </div>
+            <div className="font-serif text-[23px] font-medium mt-2 mb-0.5">Thursday, 23 July · 5:30 pm</div>
+            <div className="text-sm text-[#CFE0D8]">Implant review with Dr. Meher · Chair 2</div>
+            <div className="flex gap-[9px] mt-4 flex-wrap">
+              <div onClick={() => show("Opening map — Westend Centre, Aundh")} className="text-center text-[13px] font-semibold px-[22px] py-2.5 rounded-[10px] bg-white/15 text-[#F4F1EA] cursor-pointer hover:bg-white/25">Directions</div>
+              <div onClick={() => openSheet("Reschedule your visit", "We'll show you Dr. Meher's open slots this week and next. Pick one that suits you and we'll confirm by WhatsApp.", "See available times")} className="text-center text-[13px] font-semibold px-[22px] py-2.5 rounded-[10px] bg-[#FBF9F4] text-primary cursor-pointer hover:bg-white">Reschedule</div>
+            </div>
+          </div>
+
+          {/* Owed */}
+          <div className="bg-[#FBF9F4] border border-[#E4C9A0] rounded-2xl px-5 py-[18px] animate-dc-fade-up">
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="text-xs text-warning font-semibold tracking-[0.04em]">TO PAY</div>
+                <div className="font-serif text-[26px] font-semibold mt-0.5 tabular-nums">₹4,000</div>
+                <div className="text-[12.5px] text-[#8C887E] mt-px">Balance from CBCT scan · 24 Jun</div>
+              </div>
+              <div onClick={() => openSheet("Pay ₹4,000", "Pay securely by UPI, card or net-banking. A receipt is sent to you the moment it clears. You can also pay at the desk on your next visit.", "Pay by UPI")} className="text-sm font-semibold px-[22px] py-3 rounded-[11px] bg-primary text-on-primary cursor-pointer hover:bg-primary-hover">Pay now</div>
+            </div>
+          </div>
+
+          {/* Plan awaiting decision */}
+          <div className="bg-[#FBF9F4] border border-[#E2DCCF] rounded-2xl px-5 py-[18px] animate-dc-fade-up">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-2 h-2 rounded-full bg-[#D9A93B]" />
+              <span className="text-xs font-semibold text-warning tracking-[0.04em]">AWAITING YOUR DECISION</span>
+            </div>
+            <div className="text-[15.5px] font-semibold">Implant + crown, lower left</div>
+            <div className="text-[13px] text-muted-strong leading-snug mt-1">Dr. Meher has prepared a plan for the missing tooth. Have a look whenever you're ready — there's no rush.</div>
+            <div className="flex items-baseline gap-2 mt-3">
+              <span className="text-xl font-bold tabular-nums">₹48,500</span>
+              <span className="text-[12.5px] text-[#8C887E]">or ₹4,100/mo</span>
+            </div>
+            <Link to="/plan" className="block text-center text-sm font-semibold py-3 rounded-[11px] bg-primary text-on-primary mt-3.5 no-underline hover:bg-primary-hover">View my plan</Link>
+          </div>
+
+          {/* Quick tiles */}
+          <div className="grid grid-cols-2 gap-3">
+            {tiles.map((t) => (
+              <div key={t.label} onClick={t.go} className="bg-[#FBF9F4] border border-[#E2DCCF] rounded-2xl px-4 pt-4 pb-[18px] cursor-pointer relative hover:border-primary">
+                <div className="w-9 h-9 rounded-[10px] bg-primary-tint text-primary grid place-items-center text-[17px]">{t.glyph}</div>
+                <div className="text-[14.5px] font-semibold mt-[11px]">{t.label}</div>
+                <div className="text-xs text-[#8C887E] mt-px">{t.sub}</div>
+                {t.badge && <span className="absolute top-3.5 right-3.5 text-[11px] font-bold bg-primary text-on-primary rounded-[9px] px-2 py-px font-mono">{t.badge}</span>}
+              </div>
+            ))}
+          </div>
+
+          {/* Recent visits */}
+          <div className="bg-[#FBF9F4] border border-[#E2DCCF] rounded-2xl px-5 py-4">
+            <div className="text-[13px] font-semibold mb-3">Recent visits</div>
+            <div className="flex flex-col">
+              {VISITS.map((v, i) => (
+                <div key={v.date} className="flex gap-3 py-2.5" style={{ borderBottom: i < VISITS.length - 1 ? "1px solid #EDE7DB" : "none" }}>
+                  <div className="text-[11px] text-[#8C887E] font-mono w-12 flex-none pt-px">{v.date}</div>
+                  <div className="flex-1"><div className="text-[13.5px] font-medium">{v.title}</div><div className="text-xs text-[#8C887E]">{v.doctor}</div></div>
+                  <div className="text-[12.5px] text-muted-strong tabular-nums">{v.amount}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Bottom sheet */}
+      {sheet && (
+        <div className="fixed inset-0 z-[60] bg-[#26241F]/40 flex items-end justify-center animate-dc-fade" onClick={() => setSheet(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-[460px] bg-[#FBF9F4] rounded-t-[20px] px-6 pt-6 pb-[30px]" style={{ animation: "dc-sheet .22s cubic-bezier(.2,.8,.2,1)" }}>
+            <div className="w-[38px] h-1 rounded-sm bg-[#DBD5C7] mx-auto mb-[18px]" />
+            <div className="font-serif text-[22px] font-medium">{sheet.title}</div>
+            <p className="text-sm text-muted-strong leading-relaxed my-2.5 mb-5">{sheet.body}</p>
+            <div onClick={() => setSheet(null)} className="text-center text-sm font-semibold py-[13px] rounded-xl bg-primary text-on-primary cursor-pointer hover:bg-primary-hover">{sheet.cta}</div>
+          </div>
+        </div>
+      )}
+
+      <LocalToast toast={toast} bottom={88} />
     </div>
   );
 }
