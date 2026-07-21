@@ -37,6 +37,22 @@ The server **boots without MongoDB or Redis** (degraded mode) so health checks
 and route wiring can be exercised without infrastructure. `GET /readyz` reports
 dependency status; data endpoints return a clear 503 until the database is up.
 
+## Seed & verify (require a reachable MongoDB)
+
+```bash
+npm run seed        # seeds the Meher Dental Care demo clinic into MONGO_URI
+npm run verify      # spins up an in-memory Mongo, seeds, and exercises the
+                    # services + HTTP layer end-to-end (needs egress to
+                    # fastdl.mongodb.org to fetch the mongod binary once)
+```
+
+The seed generates coherent history — patients, appointments across statuses,
+treatment plans across every acceptance state, invoices/payments, ~50 leads,
+inventory and lab cases — and deliberately builds an **unscheduled treatment
+backlog worth ≈₹8–15 lakh** (the demo money shot). Owner login for the seeded
+clinic: `owner@meherdental.in` / `password123` (or OTP). Set `SEED_SCALE=5` for
+the full spec volume (~400 patients).
+
 ## Health
 
 - `GET /healthz` — liveness
