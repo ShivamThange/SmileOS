@@ -95,6 +95,12 @@ async function main(): Promise<void> {
   await expectThrow("unapproved template refused", () =>
     comm.sendMessage(clinicId, actorId, String(closedConv._id), { template: String(draftTpl._id) }),
   );
+  const inbound = await comm.recordInbound("9188", "Reply from patient", "wamid.123");
+  const inMsg = await models.MessageModel.findOne({ conversation: closedConv._id, direction: "in" }).lean();
+  check("inbound message appended to thread", inbound === true && inMsg?.content === "Reply from patient");
+  const reopened = await models.ConversationModel.findById(closedConv._id).lean();
+  check("inbound reopens the session window", comm.withinSessionWindow(reopened as never) === true);
+  check("inbound from unknown sender is a no-op", (await comm.recordInbound("0000", "x")) === false);
 
   /* ---- Content: gallery consent gate ------------------------------------- */
   console.log("\n=== content ===");

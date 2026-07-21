@@ -98,3 +98,37 @@ export async function sendMessage(
 export async function markRead(clinicId: string, conversationId: string): Promise<void> {
   await ConversationModel.updateOne({ _id: conversationId, clinicId }, { unread: 0 });
 }
+
+/**
+ * Persist an inbound message from the WhatsApp webhook: append it to the
+ * matching conversation, reopen the 24-hour session window, and bump unread.
+ * Returns false when no conversation matches the sender (the clinic is then
+ * unknown, so we don't guess one). Keeps inbound handling in the module that
+ * owns the inbox rather than in the webhook.
+ */
+export async function recordInbound(
+  externalThreadId: string,
+  content: string,
+  externalMessageId?: string,
+): Promise<boolean> {
+  const conv = await ConversationModel.findOne({ externalThreadId });
+  if (!conv) return false;
+
+  conv.lastMessageAt = new Date();
+  conv.sessionWindowExpiresAt = new Date(Date.now() + 24 * 3600_000);
+  conv.unread = (conv.unread ?? 0) + 1;
+  conv.status = "open";
+  await conv.save();
+
+  await MessageModel.create({
+    clinicId: conv.clinicId,
+    conversation: conv._id,
+    direction: "in",
+    channel: conv.channel,
+    content,
+    externalMessageId,
+    status: "delivered",
+    timestamps: { deliveredAt: new Date() },
+  });
+  return true;
+}
