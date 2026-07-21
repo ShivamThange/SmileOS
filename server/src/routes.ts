@@ -9,6 +9,7 @@ import { invoiceRouter, paymentRouter, expenseRouter } from "./modules/billing/b
 import { leadRouter, recallRouter } from "./modules/growth/growth.routes";
 import { analyticsRouter } from "./modules/analytics/analytics.routes";
 import { publicRouter } from "./modules/public/public.routes";
+import { portalRouter } from "./modules/portal/portal.routes";
 
 /*
  * API router aggregator (mounted at env.API_PREFIX). Domain module routers are
@@ -33,5 +34,6 @@ apiRouter.use("/leads", leadRouter);
 apiRouter.use("/recalls", recallRouter);
 apiRouter.use("/analytics", analyticsRouter);
 apiRouter.use("/public", publicRouter);
+apiRouter.use("/portal", portalRouter);
 
 // Further domain modules mount below as they land.
