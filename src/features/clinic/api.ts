@@ -63,6 +63,16 @@ export function getClinicFeatures(): Promise<Record<string, boolean>> {
 }
 
 /** Update clinic branding (PATCH /clinic/branding). Requires settings:update. */
-export function updateClinicBranding(branding: Partial<ClinicBranding>): Promise<PublicClinic> {
-  return api.patch<PublicClinic>("/clinic/branding", branding);
+export function updateClinicBranding(branding: Partial<ClinicBranding>): Promise<ClinicBranding> {
+  return api.patch<ClinicBranding>("/clinic/branding", branding);
+}
+
+/** Update clinic profile fields (PATCH /clinic). Requires settings:update. */
+export function updateClinic(patch: Record<string, unknown>): Promise<PublicClinic> {
+  return api.patch<PublicClinic>("/clinic", patch);
+}
+
+/** Toggle clinic feature flags (PATCH /clinic/features). Requires settings:update. */
+export function updateClinicFeatures(features: Record<string, boolean>): Promise<Record<string, boolean>> {
+  return api.patch<Record<string, boolean>>("/clinic/features", features);
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { visibleNavGroups } from "@/config/nav";
 import { usePermission } from "@/hooks/use-permission";
+import { useFeatureEnabled } from "@/hooks/use-features";
 import type { Permission } from "@/shared/rbac";
 import { clinicConfig, TODAY_LABEL } from "@/config/clinic";
 import { Icon } from "@/components/ui/icon";
@@ -30,6 +31,7 @@ export function ConsoleLayout() {
   const { setPaletteOpen } = useUIStore();
   const { openBooking } = useDeskStore();
   const { can, rolesFor } = usePermission();
+  const featureOn = useFeatureEnabled();
   const { user, setUserId, isOverride } = useSession();
 
   async function handleSignOut() {
@@ -96,7 +98,7 @@ export function ConsoleLayout() {
         </div>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2 flex flex-col gap-0.5">
-          {visibleNavGroups(can).map((grp, gi) => (
+          {visibleNavGroups(can, featureOn).map((grp, gi) => (
             <div key={gi} className="flex flex-col gap-px" style={{ marginTop: gi === 0 ? 0 : 10 }}>
               {grp.label && !collapsed && (
                 <div className="text-[10px] font-semibold tracking-[0.08em] text-muted-2 px-2.5 pt-2 pb-1">

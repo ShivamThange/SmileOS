@@ -1,5 +1,6 @@
 import type { IconName } from "@/components/ui/icon";
 import type { Permission } from "@/shared/rbac";
+import type { FeatureKey } from "@/hooks/use-features";
 
 export interface NavItem {
   id: string;
@@ -16,6 +17,12 @@ export interface NavItem {
    * routes for a user who forges the URL.
    */
   perm?: Permission;
+  /**
+   * Feature flag(s) that must be enabled for this section to exist (spec 4.2).
+   * An array is satisfied if ANY flag is on. Omitted → always present. A clinic
+   * without the module never sees the nav entry or its routes.
+   */
+  feature?: FeatureKey | FeatureKey[];
 }
 
 export interface NavGroup {
@@ -44,7 +51,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "CLINIC",
     items: [
-      { id: "operations", label: "Operations", icon: "operations", to: "/app/lab", match: "/app/(lab|inventory|suppliers)", count: 2, perm: "lab_case:read" },
+      { id: "operations", label: "Operations", icon: "operations", to: "/app/lab", match: "/app/(lab|inventory|suppliers)", count: 2, perm: "lab_case:read", feature: ["labTracking", "inventory"] },
       { id: "team", label: "Team", icon: "team", to: "/app/staff", match: "/app/(staff|attendance|doctor-performance)", perm: "staff:read" },
       { id: "insight", label: "Insight", icon: "insight", to: "/app/insight", match: "/app/insight", perm: "analytics:read" },
       { id: "settings", label: "Settings", icon: "settings", to: "/app/settings/profile", match: "/app/settings" },
@@ -53,12 +60,21 @@ export const navGroups: NavGroup[] = [
 ];
 
 /**
- * Filter the nav to what a user may see. An item with no `perm` is always
- * shown; a group with no visible items is dropped so the sidebar never renders
- * an empty section header.
+ * Filter the nav to what a user may see. An item is shown when the user holds
+ * its permission (if any) AND its feature flag is enabled (if any). A group with
+ * no visible items is dropped so the sidebar never renders an empty section
+ * header.
  */
-export function visibleNavGroups(can: (perm: Permission) => boolean): NavGroup[] {
+export function visibleNavGroups(
+  can: (perm: Permission) => boolean,
+  featureOn: (keys: FeatureKey | FeatureKey[]) => boolean,
+): NavGroup[] {
   return navGroups
-    .map((group) => ({ ...group, items: group.items.filter((item) => !item.perm || can(item.perm)) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => (!item.perm || can(item.perm)) && (!item.feature || featureOn(item.feature)),
+      ),
+    }))
     .filter((group) => group.items.length > 0);
 }

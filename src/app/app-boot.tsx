@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { session } from "@/lib/api";
 import { applyBranding } from "@/lib/branding";
-import { getPublicClinic } from "@/features/clinic/api";
+import { getPublicClinic, getClinicFeatures } from "@/features/clinic/api";
 import { getMe, refreshSession } from "@/features/auth/api";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -42,8 +42,19 @@ async function runBoot(): Promise<void> {
   })();
 
   const [clinic, user] = await Promise.all([clinicPromise, sessionPromise]);
-  if (user) auth.setAuthed(user, clinic);
-  else auth.setGuest(clinic);
+  if (user) {
+    auth.setAuthed(user, clinic);
+    // Feature flags gate which console sections exist; fetch them once the
+    // staff session is confirmed. A failure leaves flags empty, which reads as
+    // "all enabled" so a transient error never hides a core surface.
+    try {
+      auth.setFeatures(await getClinicFeatures());
+    } catch {
+      /* non-fatal — nav falls back to all-enabled */
+    }
+  } else {
+    auth.setGuest(clinic);
+  }
 }
 
 function BootSplash() {

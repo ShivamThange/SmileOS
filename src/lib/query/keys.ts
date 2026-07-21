@@ -29,6 +29,13 @@ export const queryKeys = {
     features: () => ["clinic", "features"] as const,
   },
 
+  procedures: {
+    all: ["procedures"] as const,
+    lists: () => ["procedures", "list"] as const,
+    list: (params: QueryParams = {}) => ["procedures", "list", params] as const,
+    detail: (id: string) => ["procedures", "detail", id] as const,
+  },
+
   patients: {
     all: ["patients"] as const,
     lists: () => ["patients", "list"] as const,
