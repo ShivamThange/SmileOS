@@ -350,9 +350,10 @@ function labelPlain(t: ToothCondition): string {
       return "nothing there";
     case "plannedTooth":
       return "planned treatment";
-    default:
-      return TOOTH_CONDITIONS[t].label.toLowerCase();
   }
+  // Exhaustive over ToothCondition above; this line is unreachable but keeps
+  // the function total if a new condition is ever added to the union.
+  return TOOTH_CONDITIONS[t as ToothCondition].label.toLowerCase();
 }
 
 /** Count of teeth with anything recorded — used for the "health over time" line. */
