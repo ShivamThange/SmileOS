@@ -3,13 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { Panel, MicroLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
+import { isApiError } from "@/lib/api";
+import { useCreatePatient } from "./queries";
+import type { CreatePatientInput } from "./api";
+import type { Gender } from "@/shared/enums";
 
 /*
- * New patient — the record-creation form. The patient number is generated
- * automatically (shown read-only) so the desk never has to invent one.
+ * New patient (T2.2) — wired to POST /patients. The patient number is assigned
+ * by the server (never invented at the desk), so we don't show a fake one; the
+ * record opens on its real number after creation. Name + phone are the only
+ * hard requirements — everything else can be filled on the next visit.
  */
-
-const NEXT_PNO = "MDC-1259";
 
 function Input({ label, placeholder, value, onChange, mono }: { label: string; placeholder?: string; value: string; onChange: (v: string) => void; mono?: boolean }) {
   return (
@@ -21,12 +25,54 @@ function Input({ label, placeholder, value, onChange, mono }: { label: string; p
   );
 }
 
+/** Parse "52 M" / "52/F" / "M 52" into an age and a gender enum. */
+function parseAgeSex(raw: string): { ageFallback?: number; gender?: Gender } {
+  const ageMatch = raw.match(/\d{1,3}/);
+  const ageFallback = ageMatch ? Number(ageMatch[0]) : undefined;
+  const g = /[mf]/i.exec(raw)?.[0]?.toLowerCase();
+  const gender: Gender | undefined = g === "m" ? "male" : g === "f" ? "female" : undefined;
+  return { ageFallback, gender };
+}
+
 export function NewPatientScreen() {
   const navigate = useNavigate();
   const { showToast } = useUIStore();
+  const create = useCreatePatient();
   const [f, setF] = useState({ name: "", phone: "", agesex: "", email: "", address: "", allergies: "", conditions: "", referredBy: "" });
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
-  const canSave = f.name.trim() && f.phone.trim();
+  const canSave = f.name.trim() && f.phone.trim() && !create.isPending;
+
+  async function submit() {
+    if (!canSave) return;
+    const [firstName, ...rest] = f.name.trim().split(/\s+/);
+    const { ageFallback, gender } = parseAgeSex(f.agesex);
+    // Free-text allergies/conditions are preserved on the record note until the
+    // structured medical-history editor lands; they still reach the clinician.
+    const medical = [f.allergies.trim() && `Allergies: ${f.allergies.trim()}`, f.conditions.trim() && `Conditions: ${f.conditions.trim()}`].filter(Boolean).join(" · ");
+    const input: CreatePatientInput = {
+      firstName,
+      lastName: rest.join(" ") || undefined,
+      phone: f.phone.trim(),
+      email: f.email.trim() || undefined,
+      ageFallback,
+      gender,
+      address: f.address.trim() ? { line1: f.address.trim() } : undefined,
+      referralSource: f.referredBy.trim() || undefined,
+      notes: medical || undefined,
+    };
+    try {
+      const patient = await create.mutateAsync(input);
+      showToast(`${patient.name} created — ${patient.patientNumber}`);
+      navigate(`/app/patients/${patient.id}`);
+    } catch (err) {
+      const msg = isApiError(err) && err.code === "CONFLICT_DUPLICATE"
+        ? "A patient with this phone number already exists."
+        : isApiError(err) && err.code === "VALIDATION_FAILED"
+          ? "Please check the name and phone number."
+          : "Couldn't create the patient. Please try again.";
+      showToast(msg);
+    }
+  }
 
   return (
     <div className="max-w-[820px] mx-auto flex flex-col gap-3.5">
@@ -37,7 +83,7 @@ export function NewPatientScreen() {
       </div>
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="m-0 text-[18px] font-semibold tracking-[-0.01em]">New patient</h1>
-        <span className="text-[12px] text-muted">Patient no. <span className="font-mono font-semibold text-ink">{NEXT_PNO}</span> · auto-generated</span>
+        <span className="text-[12px] text-muted">Patient no. is <span className="font-medium text-ink">assigned on save</span></span>
       </div>
 
       <Panel className="px-5 py-5 flex flex-col gap-4">
@@ -67,9 +113,9 @@ export function NewPatientScreen() {
         </div>
 
         <div className="flex gap-2 pt-1">
-          <Button variant="primary" disabled={!canSave} onClick={() => { showToast(`${f.name || "Patient"} created — ${NEXT_PNO}`); navigate("/app/patients"); }}>Create patient</Button>
+          <Button variant="primary" disabled={!canSave} onClick={submit}>{create.isPending ? "Creating…" : "Create patient"}</Button>
           <Button variant="secondary" onClick={() => navigate("/app/patients")}>Cancel</Button>
-          {!canSave && <span className="self-center text-[11.5px] text-muted-2">Name and phone are required</span>}
+          {!f.name.trim() || !f.phone.trim() ? <span className="self-center text-[11.5px] text-muted-2">Name and phone are required</span> : null}
         </div>
       </Panel>
     </div>
