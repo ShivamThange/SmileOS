@@ -40,10 +40,10 @@ export function ClinicalDayScreen() {
     return list;
   }, [user.doctorName]);
 
-  const inChair = mine.find((a) => a.status === "inchair" || isRunningNow(a.start, a.dur, now));
-  const next = mine.find((a) => a.start > now && a.status !== "done");
-  const doneToday = mine.filter((a) => a.status === "done");
-  const remaining = mine.filter((a) => a.status !== "done" && a.id !== inChair?.id);
+  const inChair = mine.find((a) => a.status === "in_progress" || isRunningNow(a.start, a.dur, now));
+  const next = mine.find((a) => a.start > now && a.status !== "completed");
+  const doneToday = mine.filter((a) => a.status === "completed");
+  const remaining = mine.filter((a) => a.status !== "completed" && a.id !== inChair?.id);
 
   const producedPaise = doneToday.reduce((s, a) => s + inferFeePaise(a.proc), 0);
   const scheduledPaise = mine.reduce((s, a) => s + inferFeePaise(a.proc), 0);

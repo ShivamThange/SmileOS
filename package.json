@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run check:enums",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
+    "sync:enums": "node scripts/enums-mirror.mjs",
+    "check:enums": "node scripts/enums-mirror.mjs --check",
     "preview": "vite preview",
     "lint": "eslint ."
   },

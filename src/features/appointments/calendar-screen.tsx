@@ -80,31 +80,31 @@ function clamp(v: number, lo: number, hi: number): number {
 /** Status-transition action lists per current status. */
 function actionsFor(a: Appointment): { label: string; primary: boolean; next?: AppointmentStatus; msg: string }[] {
   const map: Record<AppointmentStatus, { label: string; primary: boolean; next?: AppointmentStatus; msg: string }[]> = {
-    booked: [
+    scheduled: [
       { label: "Confirm appointment", primary: true, next: "confirmed", msg: `Confirmed — confirmation queued to ${a.name}` },
-      { label: "Check in", primary: false, next: "arrived", msg: `${a.name} checked in — ${a.doctor} notified` },
+      { label: "Check in", primary: false, next: "checked_in", msg: `${a.name} checked in — ${a.doctor} notified` },
       { label: "Cancel", primary: false, next: "cancelled", msg: "Cancelled — the slot was offered to the waitlist" },
-      { label: "Mark no-show", primary: false, next: "noshow", msg: "Marked as no-show — a follow-up task was created" },
+      { label: "Mark no-show", primary: false, next: "no_show", msg: "Marked as no-show — a follow-up task was created" },
     ],
     confirmed: [
-      { label: "Check in", primary: true, next: "arrived", msg: `${a.name} checked in — ${a.doctor} notified` },
+      { label: "Check in", primary: true, next: "checked_in", msg: `${a.name} checked in — ${a.doctor} notified` },
       { label: "Cancel", primary: false, next: "cancelled", msg: "Cancelled — the slot was offered to the waitlist" },
-      { label: "Mark no-show", primary: false, next: "noshow", msg: "Marked as no-show — a follow-up task was created" },
+      { label: "Mark no-show", primary: false, next: "no_show", msg: "Marked as no-show — a follow-up task was created" },
     ],
-    arrived: [
-      { label: "Start treatment", primary: true, next: "inchair", msg: `${a.name} is in the chair` },
+    checked_in: [
+      { label: "Start treatment", primary: true, next: "in_progress", msg: `${a.name} is in the chair` },
     ],
-    inchair: [
-      { label: "Complete visit", primary: true, next: "done", msg: "Visit completed — a draft invoice was created" },
+    in_progress: [
+      { label: "Complete visit", primary: true, next: "completed", msg: "Visit completed — a draft invoice was created" },
     ],
-    done: [
+    completed: [
       { label: "Book next visit", primary: false, msg: `Booking form opens with ${a.name}'s details` },
     ],
     cancelled: [
       { label: "Rebook", primary: true, msg: `Booking form opens with ${a.name}'s details` },
       { label: "Offer slot to waitlist", primary: false, msg: "This slot was offered to the waitlist" },
     ],
-    noshow: [
+    no_show: [
       { label: "Call patient", primary: true, msg: `Calling ${a.name}` },
       { label: "Rebook", primary: false, msg: `Booking form opens with ${a.name}'s details` },
     ],

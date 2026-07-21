@@ -54,13 +54,13 @@ export function CheckinScreen() {
   const todays = useMemo(
     () =>
       appointments
-        .filter((a) => !["cancelled", "noshow"].includes(a.status))
+        .filter((a) => !["cancelled", "no_show"].includes(a.status))
         .sort((a, b) => a.start - b.start),
     [],
   );
 
   const [here, setHere] = useState<Set<string>>(
-    () => new Set(todays.filter((a) => ["arrived", "inchair", "done"].includes(a.status)).map((a) => a.id)),
+    () => new Set(todays.filter((a) => ["checked_in", "in_progress", "completed"].includes(a.status)).map((a) => a.id)),
   );
   const [arrivedAt, setArrivedAt] = useState<Record<string, number>>({});
   /** The row currently showing its confirmation strip. */
@@ -69,7 +69,7 @@ export function CheckinScreen() {
 
   const gaps = useMemo(() => findGaps(0, 30, now), [now]);
 
-  const waiting = todays.filter((a) => here.has(a.id) && a.status !== "done");
+  const waiting = todays.filter((a) => here.has(a.id) && a.status !== "completed");
   const late = todays.filter((a) => !here.has(a.id) && a.start + 0.25 < now);
   const soon = todays.filter((a) => !here.has(a.id) && a.start >= now - 0.25 && a.start <= now + 1);
   const later = todays.filter((a) => !here.has(a.id) && a.start > now + 1);
@@ -178,7 +178,7 @@ export function CheckinScreen() {
                 now={now}
                 onOpenPatient={openPatientPreview}
                 action={
-                  a.status === "inchair" ? (
+                  a.status === "in_progress" ? (
                     <span className="text-[10.5px] font-bold px-2 py-1 rounded-[5px] bg-primary text-on-primary">
                       IN CHAIR
                     </span>

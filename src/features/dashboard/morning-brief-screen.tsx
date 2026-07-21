@@ -44,7 +44,7 @@ export function MorningBriefScreen() {
    */
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
   const [arrived, setArrived] = useState<Set<string>>(
-    () => new Set(appointments.filter((a) => ["arrived", "inchair", "done"].includes(a.status)).map((a) => a.id)),
+    () => new Set(appointments.filter((a) => ["checked_in", "in_progress", "completed"].includes(a.status)).map((a) => a.id)),
   );
   const [chased, setChased] = useState<Set<string>>(new Set());
   const [overnightOpen, setOvernightOpen] = useState(false);
@@ -54,12 +54,12 @@ export function MorningBriefScreen() {
     [],
   );
 
-  const unconfirmed = today.filter((a) => a.status === "booked" && !confirmed.has(a.id));
+  const unconfirmed = today.filter((a) => a.status === "scheduled" && !confirmed.has(a.id));
   const gaps = useMemo(() => findGaps(0, 30, now).slice(0, 3), [now]);
   const expected = expectedCollectionPaise(0);
 
   const runningLate = today.filter(
-    (a) => !arrived.has(a.id) && a.status !== "noshow" && a.start + 0.25 < now && a.start > now - 2,
+    (a) => !arrived.has(a.id) && a.status !== "no_show" && a.start + 0.25 < now && a.start > now - 2,
   );
 
   const freshLeads = leads.filter((l) => l.age.includes("h ago"));
@@ -366,7 +366,7 @@ function ArrivalRow({
 }) {
   const patient = patients.find((p) => p.name === appt.name) ?? null;
   const past = appt.start + appt.dur < now;
-  const waitingMins = isHere && appt.status !== "done" ? minutesSince(appt.start, now) : null;
+  const waitingMins = isHere && appt.status !== "completed" ? minutesSince(appt.start, now) : null;
 
   return (
     <div
@@ -418,7 +418,7 @@ function ArrivalRow({
       </span>
 
       <span className="flex items-center gap-1.5 justify-end">
-        {waitingMins !== null && waitingMins >= 0 && appt.status !== "inchair" && (
+        {waitingMins !== null && waitingMins >= 0 && appt.status !== "in_progress" && (
           <span
             className="text-[10.5px] font-semibold tnum px-1.5 py-0.5 rounded-[5px] border"
             style={{
@@ -431,11 +431,11 @@ function ArrivalRow({
             waiting {waitingMins}m
           </span>
         )}
-        {appt.status === "inchair" ? (
+        {appt.status === "in_progress" ? (
           <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-[5px] bg-primary text-on-primary">
             IN CHAIR
           </span>
-        ) : appt.status === "done" ? (
+        ) : appt.status === "completed" ? (
           patient && patient.balancePaise > 0 ? (
             <Primary onClick={() => onSettle(patient.id)}>Settle</Primary>
           ) : (

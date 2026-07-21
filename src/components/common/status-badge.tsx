@@ -7,7 +7,7 @@ import type { AppointmentStatus, ApptFlag, Urgency } from "@/types/enums";
  */
 export function AppointmentStatusBadge({ status }: { status: AppointmentStatus }) {
   const s = appointmentStatusStyle[status];
-  const filled = status === "inchair";
+  const filled = status === "in_progress";
   return (
     <span
       className="text-[10.5px] font-bold px-2 py-[3px] rounded-[5px] border whitespace-nowrap"
