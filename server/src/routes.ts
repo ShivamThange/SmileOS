@@ -13,6 +13,7 @@ import { portalRouter } from "./modules/portal/portal.routes";
 import { inventoryRouter, supplierRouter, purchaseOrderRouter, labCaseRouter } from "./modules/operations/operations.routes";
 import { conversationRouter, templateRouter, automationRuleRouter, notificationRouter } from "./modules/communication/communication.routes";
 import { userRouter, attendanceRouter } from "./modules/user/user.routes";
+import { contentRouter, publicContentRouter } from "./modules/content/content.routes";
 
 /*
  * API router aggregator (mounted at env.API_PREFIX). Domain module routers are
@@ -48,5 +49,7 @@ apiRouter.use("/automation-rules", automationRuleRouter);
 apiRouter.use("/notifications", notificationRouter);
 apiRouter.use("/users", userRouter);
 apiRouter.use("/attendance", attendanceRouter);
+apiRouter.use("/content", contentRouter);
+apiRouter.use("/public/content", publicContentRouter);
 
 // Further domain modules mount below as they land.
