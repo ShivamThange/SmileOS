@@ -56,3 +56,13 @@ export function getPublicClinic(): Promise<PublicClinic> {
 export function getClinic(): Promise<PublicClinic> {
   return api.get<PublicClinic>("/clinic");
 }
+
+/** Clinic feature flags (GET /clinic/features) — drives nav + route gating. */
+export function getClinicFeatures(): Promise<Record<string, boolean>> {
+  return api.get<Record<string, boolean>>("/clinic/features");
+}
+
+/** Update clinic branding (PATCH /clinic/branding). Requires settings:update. */
+export function updateClinicBranding(branding: Partial<ClinicBranding>): Promise<PublicClinic> {
+  return api.patch<PublicClinic>("/clinic/branding", branding);
+}
