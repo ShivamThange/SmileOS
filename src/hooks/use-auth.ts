@@ -18,9 +18,17 @@ interface AuthState {
   user: MeUser | null;
   clinic: PublicClinic | null;
   permissions: Set<string>;
+  /**
+   * Clinic feature flags (GET /clinic/features). Drives which nav sections and
+   * routes exist — a clinic that hasn't bought inventory tracking never sees the
+   * Operations section. Empty until resolved; an absent key reads as enabled so
+   * a flag the server hasn't defined yet never hides a core surface.
+   */
+  features: Record<string, boolean>;
   setAuthed: (user: MeUser, clinic: PublicClinic | null) => void;
   setGuest: (clinic?: PublicClinic | null) => void;
   setClinic: (clinic: PublicClinic) => void;
+  setFeatures: (features: Record<string, boolean>) => void;
   reset: () => void;
 }
 
@@ -29,12 +37,14 @@ export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   clinic: null,
   permissions: new Set<string>(),
+  features: {},
   setAuthed: (user, clinic) =>
     set({ status: "authed", user, clinic: clinic ?? get().clinic, permissions: new Set(user.permissions) }),
   setGuest: (clinic) =>
     set({ status: "guest", user: null, permissions: new Set<string>(), clinic: clinic ?? get().clinic }),
   setClinic: (clinic) => set({ clinic }),
-  reset: () => set({ status: "guest", user: null, permissions: new Set<string>() }),
+  setFeatures: (features) => set({ features }),
+  reset: () => set({ status: "guest", user: null, permissions: new Set<string>(), features: {} }),
 }));
 
 /** Non-reactive permission check for use outside React (guards, api layer). */

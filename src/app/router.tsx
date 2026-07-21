@@ -59,7 +59,7 @@ import { NewPatientScreen } from "@/features/patients/new-patient-screen";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { LoginScreen } from "@/features/auth/login-screen";
 import { PortalLogin } from "@/features/portal/portal-login";
-import { RequirePatient, RequireStaff } from "./guards";
+import { RequireFeature, RequirePatient, RequireStaff } from "./guards";
 
 export const router = createBrowserRouter([
   { path: "/", element: patientSurface(<SiteScreen />) },
@@ -128,15 +128,15 @@ export const router = createBrowserRouter([
       // Growth
       { path: "leads", element: <LeadsScreen /> },
       { path: "leads/:id", element: <LeadsScreen /> },
-      { path: "recalls", element: <RecallsScreen /> },
+      { path: "recalls", element: <RequireFeature feature="recallEngine"><RecallsScreen /></RequireFeature> },
       { path: "campaigns", element: <CampaignsScreen /> },
-      { path: "reviews", element: <ReviewsScreen /> },
-      { path: "inbox", element: <InboxScreen /> },
+      { path: "reviews", element: <RequireFeature feature="reviewRequests"><ReviewsScreen /></RequireFeature> },
+      { path: "inbox", element: <RequireFeature feature="whatsapp"><InboxScreen /></RequireFeature> },
 
       // Operations
-      { path: "lab", element: <LabScreen /> },
-      { path: "inventory", element: <InventoryScreen /> },
-      { path: "suppliers", element: <SuppliersScreen /> },
+      { path: "lab", element: <RequireFeature feature="labTracking"><LabScreen /></RequireFeature> },
+      { path: "inventory", element: <RequireFeature feature="inventory"><InventoryScreen /></RequireFeature> },
+      { path: "suppliers", element: <RequireFeature feature={["inventory", "labTracking"]}><SuppliersScreen /></RequireFeature> },
 
       // Team
       { path: "staff", element: <StaffScreen /> },
