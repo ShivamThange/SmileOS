@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/common/page-header";
 import { Panel, MicroLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { inrFromRupees } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
 import { clinicConfig } from "@/config/clinic";
+import { TemplateEditor } from "./template-editor";
 
 /*
  * Settings — clinic details, branding, fees and templates. The design's promise
@@ -17,7 +19,7 @@ const SECTIONS: { key: Section; label: string }[] = [
   { key: "profile", label: "Clinic profile" },
   { key: "branding", label: "Branding" },
   { key: "fees", label: "Fee schedule" },
-  { key: "templates", label: "Message templates" },
+  { key: "templates", label: "Templates" },
   { key: "features", label: "Features" },
 ];
 
@@ -27,19 +29,24 @@ const FEES: [string, number][] = [
   ["Clear aligners (full)", 148000], ["E-max veneer (per tooth)", 14000],
 ];
 
-const TEMPLATES: [string, string][] = [
-  ["Appointment reminder", "Hi {name}, a reminder of your appointment on {date} at {time} with {doctor}. Reply YES to confirm."],
-  ["Recall due", "Hi {name}, it's been 6 months since your last cleaning. Shall we book you in? Reply to pick a time."],
-  ["Payment receipt", "Thank you {name}. We've received {amount} against {invoice}. Your receipt is attached."],
-  ["Plan follow-up", "Hi {name}, just checking in on the treatment plan Dr. {doctor} shared. Happy to answer any questions."],
-];
-
 const FIELD = "text-[13px] px-3 py-2 border border-border rounded-md bg-bg-content outline-none focus:border-border-strong w-full";
 
 export function SettingsScreen() {
   const { showToast } = useUIStore();
-  const [section, setSection] = useState<Section>("profile");
+  const navigate = useNavigate();
+  const { section: sectionParam } = useParams();
   const [brand, setBrand] = useState("#20614E");
+
+  /*
+   * The section lives in the URL, not in component state.
+   *
+   * A route that matches and is then ignored is worse than a route that
+   * doesn't exist — /app/settings/templates used to render the profile tab,
+   * which makes every link and bookmark to a settings section quietly wrong.
+   */
+  const section: Section =
+    SECTIONS.find((s) => s.key === sectionParam)?.key ?? "profile";
+  const setSection = (next: Section) => navigate(`/app/settings/${next}`);
 
   return (
     <div className="max-w-[1100px] mx-auto flex flex-col gap-3.5">
@@ -111,19 +118,7 @@ export function SettingsScreen() {
             </Panel>
           )}
 
-          {section === "templates" && (
-            <div className="flex flex-col gap-3">
-              {TEMPLATES.map(([name, body]) => (
-                <Panel key={name} className="px-4 py-3.5">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[13px] font-semibold">{name}</div>
-                    <button onClick={() => showToast(`Editing "${name}"`)} className="text-[11.5px] font-semibold text-primary">Edit</button>
-                  </div>
-                  <div className="text-[12px] text-muted leading-normal mt-1.5 font-mono bg-bg-content border border-border-faint rounded-md px-3 py-2">{body}</div>
-                </Panel>
-              ))}
-            </div>
-          )}
+          {section === "templates" && <TemplateEditor />}
 
           {section === "features" && (
             <Panel className="px-5 py-4">

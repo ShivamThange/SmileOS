@@ -48,6 +48,20 @@
 
   /* Radii */
   --radius: 8px;
+
+  /*
+   * Motion. Four easings, and a hard rule about where they may be used:
+   * a drawer entering, a toast arriving, a row changing state, and the command
+   * palette opening. Nothing else in the console moves. A dental practice is
+   * not a place for decorative animation — motion here exists to say "this
+   * changed" and "this is the same object, in a new place", nothing more.
+   */
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  --ease-spring-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
 }
 
 * {
@@ -119,10 +133,58 @@ a:hover {
   color: var(--primary-hover);
 }
 
+/*
+ * Focus. Every interactive element gets a visible ring — this is the
+ * accessibility floor, and it is also a speed win for the desk, because a
+ * receptionist tabbing through a table needs to know where she is without
+ * looking away from the phone.
+ */
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Rows and cells that take focus get a tint as well as a ring. */
+[data-row]:focus-visible,
+tr:focus-visible {
+  outline-offset: -2px;
+  background: var(--primary-tint);
+}
+
+/* Skip link — first tab stop in the console shell. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 200;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  transform: translateY(-160%);
+  transition: transform var(--dur-fast) ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  color: var(--on-primary);
+}
+
+/*
+ * Anyone who has asked their operating system to stop moving things gets a
+ * product that does not move. Non-negotiable, and cheap.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Bottom-sheet slide-up for patient-facing surfaces (Portal / Treatment Plan). */

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useLocalToast, LocalToast } from "@/components/common/local-toast";
 import { clinicConfig } from "@/config/clinic";
+import { ChartScrubber } from "@/features/clinical/chart-scrubber";
 
 /*
  * Patient Portal — the at-home experience a patient carries in their pocket
@@ -106,6 +107,23 @@ export function PortalHome() {
               <span className="text-[12.5px] text-[#8C887E]">or ₹4,100/mo</span>
             </div>
             <Link to="/plan" className="block text-center text-sm font-semibold py-3 rounded-[11px] bg-primary text-on-primary mt-3.5 no-underline hover:bg-primary-hover">View my plan</Link>
+          </div>
+
+          {/*
+           * Your mouth over time.
+           *
+           * The one thing on this page worth coming back for. Patient portals
+           * are almost universally dead surfaces — people log in once and never
+           * return, because there is nothing to return to. This is genuinely
+           * interesting to look at in a way health records almost never are,
+           * and it is the thing that gets shown to a spouse.
+           */}
+          <div className="bg-[#FBF9F4] border border-[#E2DCCF] rounded-2xl px-5 py-[18px] col-span-full animate-dc-fade-up">
+            <div className="font-serif text-[19px] font-medium">Your mouth, over time</div>
+            <div className="text-[13px] text-[#8C887E] mt-0.5 mb-3.5">
+              Every check-up we've done, as a slider. Drag it, or press play.
+            </div>
+            <ChartScrubber patientId="p2" tone="patient" />
           </div>
 
           {/* Quick tiles */}

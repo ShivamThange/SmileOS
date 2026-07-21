@@ -1,7 +1,10 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ConsoleLayout } from "@/components/layouts/console-layout";
+import { AppRoot } from "@/features/dashboard/app-root";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
+import { NotFoundScreen } from "@/features/dashboard/not-found-screen";
+import { PatientSurfaceSkeleton } from "@/components/common/skeleton";
 import { CalendarScreen } from "@/features/appointments/calendar-screen";
 import { RecoveryScreen } from "@/features/revenue/recovery-screen";
 import { LeadsScreen } from "@/features/leads/leads-screen";
@@ -20,11 +23,15 @@ const PortalHome = lazy(() => import("@/features/portal/portal-home").then((m) =
 const TreatmentPlanScreen = lazy(() => import("@/features/treatment-plan/treatment-plan-screen").then((m) => ({ default: m.TreatmentPlanScreen })));
 const CostCalculatorScreen = lazy(() => import("@/features/cost-calculator/cost-calculator-screen").then((m) => ({ default: m.CostCalculatorScreen })));
 
-/** Suspense wrapper for the lazily-loaded standalone surfaces. */
+/*
+ * Suspense wrapper for the lazily-loaded standalone surfaces.
+ *
+ * The fallback is a skeleton shaped like the thing arriving, not the word
+ * "Loading…". The plan link is a patient's first impression of the clinic and
+ * it should not open on grey text.
+ */
 const patientSurface = (el: ReactNode) => (
-  <Suspense fallback={<div className="min-h-screen grid place-items-center bg-[#EFEBE3] text-[13px] text-[#8C887E] font-sans">Loading…</div>}>
-    {el}
-  </Suspense>
+  <Suspense fallback={<PatientSurfaceSkeleton />}>{el}</Suspense>
 );
 import { PlansListScreen } from "@/features/treatment-plan/plans-list-screen";
 import { PlanBuilderScreen } from "@/features/treatment-plan/plan-builder-screen";
@@ -42,7 +49,9 @@ import { SuppliersScreen } from "@/features/operations/suppliers-screen";
 import { StaffScreen } from "@/features/team/staff-screen";
 import { AttendanceScreen } from "@/features/team/attendance-screen";
 import { AnalyticsScreen } from "@/features/insight/analytics-screen";
+import { LeakReportScreen } from "@/features/insight/leak-report-screen";
 import { ClinicalQueueScreen } from "@/features/clinical/clinical-queue-screen";
+import { ChartingScreen } from "@/features/clinical/charting-screen";
 import { PrescriptionsScreen } from "@/features/clinical/prescriptions-screen";
 import { WaitlistScreen } from "@/features/appointments/waitlist-screen";
 import { CheckinScreen } from "@/features/appointments/checkin-screen";
@@ -61,7 +70,25 @@ export const router = createBrowserRouter([
     path: "/app",
     element: <ConsoleLayout />,
     children: [
-      { index: true, element: <DashboardScreen /> },
+      /*
+       * The front door resolves by role: the desk gets the morning brief, the
+       * clinicians get their chair list, accounts get the numbers. "How are we
+       * doing" is a destination rather than the door — /app/insight.
+       */
+      { index: true, element: <AppRoot /> },
+
+      /*
+       * Insight resolves to the narrative screen — five sentences, each ending
+       * in an action. The financial dashboard is still here, one level down,
+       * because "show me the charts" is a real request; it just isn't the first
+       * thing anyone should meet when they click Insight.
+       */
+      { path: "insight", element: <AnalyticsScreen /> },
+      { path: "insight/leak", element: <LeakReportScreen /> },
+      { path: "insight/dashboard", element: <DashboardScreen /> },
+      // Kept so older links and bookmarks still land somewhere sensible.
+      { path: "analytics", element: <Navigate to="/app/insight" replace /> },
+      { path: "dashboard", element: <Navigate to="/app/insight/dashboard" replace /> },
 
       // Schedule
       { path: "calendar", element: <CalendarScreen /> },
@@ -76,6 +103,8 @@ export const router = createBrowserRouter([
 
       // Clinical
       { path: "clinical/queue", element: <ClinicalQueueScreen /> },
+      { path: "clinical/chart", element: <ChartingScreen /> },
+      { path: "clinical/chart/:patientId", element: <ChartingScreen /> },
       { path: "clinical/prescriptions", element: <PrescriptionsScreen /> },
 
       // Revenue
@@ -104,14 +133,16 @@ export const router = createBrowserRouter([
       { path: "staff", element: <StaffScreen /> },
       { path: "attendance", element: <AttendanceScreen /> },
 
-      // Insight
-      { path: "analytics", element: <AnalyticsScreen /> },
-
-      // Settings
+      // Settings — the section is part of the URL so it can be linked to.
       { path: "settings", element: <SettingsScreen /> },
-      { path: "settings/*", element: <SettingsScreen /> },
+      { path: "settings/:section", element: <SettingsScreen /> },
 
-      { path: "*", element: <Navigate to="/app" replace /> },
+      /*
+       * An unmatched path inside the console gets a real 404 rather than a
+       * silent redirect. Bouncing someone to the front door without explanation
+       * reads as the product having lost their page.
+       */
+      { path: "*", element: <NotFoundScreen /> },
     ],
   },
 

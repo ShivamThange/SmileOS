@@ -5,13 +5,16 @@ import { DataTable, type Column } from "@/components/common/data-table";
 import { Avatar } from "@/components/ui/avatar";
 import { MoneyText } from "@/components/common/money-text";
 import { Button } from "@/components/ui/button";
+import { MedicalAlertBadge } from "@/components/common/medical-alert-badge";
+import { PhoneLink } from "@/components/common/phone-link";
 import { patients } from "@/lib/mock-data";
-import { useUIStore } from "@/hooks/use-ui-store";
+import { useDeskStore } from "@/hooks/use-desk-store";
+import { clinicConfig } from "@/config/clinic";
 import type { Patient } from "@/types";
 
 export function PatientsListScreen() {
   const navigate = useNavigate();
-  const { showToast } = useUIStore();
+  const { openBooking } = useDeskStore();
   const [q, setQ] = useState("");
 
   const rows = useMemo(() => {
@@ -41,16 +44,24 @@ export function PatientsListScreen() {
       ),
     },
     { key: "agesex", header: "AGE / SEX", width: "0.7fr", render: (p) => <span className="text-muted">{p.agesex}</span> },
-    { key: "phone", header: "PHONE", width: "1fr", render: (p) => <span className="font-mono text-[12px]">{p.phone}</span> },
+    {
+      key: "phone",
+      header: "PHONE",
+      width: "1.2fr",
+      render: (p) => (
+        <PhoneLink
+          phone={p.phone}
+          message={`Hello ${p.name}, this is ${clinicConfig.name}.`}
+        />
+      ),
+    },
     {
       key: "alert",
       header: "ALERTS",
       width: "1.4fr",
       render: (p) =>
         p.alert ? (
-          <span className="text-[11px] font-semibold text-danger bg-danger-bg border border-danger-border rounded-[5px] px-2 py-0.5">
-            ⚠ {p.alert}
-          </span>
+          <MedicalAlertBadge alert={p.alert} variant="inline" />
         ) : (
           <span className="text-muted-2">—</span>
         ),
@@ -75,7 +86,16 @@ export function PatientsListScreen() {
       <PageHeader
         title="Patients"
         subtitle={`${patients.length} records`}
-        aside={<Button variant="primary" onClick={() => showToast("New patient — form opens here")}>＋ New patient</Button>}
+        aside={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => openBooking()}>
+              Book
+            </Button>
+            <Button variant="primary" onClick={() => navigate("/app/patients/new")}>
+              ＋ New patient
+            </Button>
+          </div>
+        }
       />
       <DataTable
         columns={columns}
@@ -91,7 +111,13 @@ export function PatientsListScreen() {
           />
         }
         footer={`Showing ${rows.length} of ${patients.length}`}
-        empty={{ icon: "patients", title: "No patients match", body: "Try a different name, patient number or phone." }}
+        empty={{
+          icon: "patients",
+          title: "No patients match",
+          body: "Nothing here for that name, number or phone. If they're calling now, book them straight in — the record gets created on confirm.",
+          cta: "Book them in",
+          onCta: () => openBooking({ phone: /^\d/.test(q.trim()) ? q.trim() : "" }),
+        }}
       />
     </div>
   );
