@@ -9,6 +9,7 @@ import { verifyWebhookSignature } from "../services/payment.service";
 import { PaymentModel } from "../models/billing.model";
 import { refreshInvoiceStatus } from "../modules/billing/billing.service";
 import { MessageModel, ConversationModel } from "../models/communication.model";
+import { recordInbound } from "../modules/communication/communication.service";
 
 /*
  * Webhooks (spec 4.16). Signature-verified and idempotent by event id. The
@@ -82,12 +83,18 @@ webhooksRouter.post("/whatsapp", asyncHandler(async (req, res) => {
   for (const s of entry.statuses ?? []) {
     await MessageModel.findOneAndUpdate({ externalMessageId: s.id }, { status: s.status, [`timestamps.${s.status}At`]: new Date() });
   }
-  // Inbound messages extend the conversation's 24-hour session window.
+  // Inbound messages append to the thread and extend the 24-hour session window.
   for (const m of entry.messages ?? []) {
-    await ConversationModel.findOneAndUpdate(
-      { externalThreadId: m.from },
-      { lastMessageAt: new Date(), sessionWindowExpiresAt: new Date(Date.now() + 24 * 3600_000), $inc: { unread: 1 } },
-    );
+    const content = m.text?.body ?? m.button?.text ?? `[${m.type ?? "message"}]`;
+    const matched = await recordInbound(String(m.from), String(content), m.id ? String(m.id) : undefined);
+    if (!matched) {
+      // No conversation yet (clinic unknown from the sender alone): still extend
+      // the window on any conversation that later adopts this thread id.
+      await ConversationModel.findOneAndUpdate(
+        { externalThreadId: m.from },
+        { lastMessageAt: new Date(), sessionWindowExpiresAt: new Date(Date.now() + 24 * 3600_000), $inc: { unread: 1 } },
+      );
+    }
   }
   return ok(res, { received: true });
 }));
