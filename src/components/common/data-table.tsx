@@ -17,6 +17,8 @@ export interface Column<T> {
   width?: string;
   align?: "left" | "right" | "center";
   render: (row: T) => React.ReactNode;
+  /** When set, the header is a sort control; the value is passed to `onSort`. */
+  sortKey?: string;
 }
 
 export interface DataTableProps<T> {
@@ -33,6 +35,12 @@ export interface DataTableProps<T> {
   footer?: React.ReactNode;
   /** Accessible name for the table region. */
   label?: string;
+  /** Dim + mark busy while a server-driven refresh is in flight. */
+  loading?: boolean;
+  /** Current server sort, so the active column can show its direction. */
+  sort?: { field: string; order: "asc" | "desc" };
+  /** Called with a column's `sortKey` when its header is activated. */
+  onSort?: (sortKey: string) => void;
 }
 
 export function DataTable<T>({
@@ -44,6 +52,9 @@ export function DataTable<T>({
   toolbar,
   footer,
   label,
+  loading,
+  sort,
+  onSort,
 }: DataTableProps<T>) {
   const template = columns.map((c) => c.width ?? "1fr").join(" ");
   const alignCls = (a?: Column<T>["align"]) =>
@@ -54,6 +65,7 @@ export function DataTable<T>({
       role="table"
       aria-label={label}
       aria-rowcount={rows.length}
+      aria-busy={loading || undefined}
       className="bg-surface border border-border rounded-lg overflow-hidden"
     >
       {toolbar && <div className="px-3.5 py-2.5 border-b border-border">{toolbar}</div>}
@@ -63,14 +75,28 @@ export function DataTable<T>({
         className="grid gap-2.5 items-center px-3.5 py-2.5 border-b border-border bg-bg-content text-[10.5px] font-bold tracking-[0.06em] text-muted-2"
         style={{ gridTemplateColumns: template }}
       >
-        {columns.map((c) => (
-          <span key={c.key} className={cn(alignCls(c.align))}>
-            {c.header}
-          </span>
-        ))}
+        {columns.map((c) => {
+          const sortable = c.sortKey && onSort;
+          const active = sort && c.sortKey === sort.field;
+          return sortable ? (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => onSort!(c.sortKey!)}
+              className={cn("flex items-center gap-1 hover:text-ink transition-colors", alignCls(c.align), active && "text-ink")}
+            >
+              {c.header}
+              <span className="text-[8px]">{active ? (sort!.order === "asc" ? "▲" : "▼") : "↕"}</span>
+            </button>
+          ) : (
+            <span key={c.key} className={cn(alignCls(c.align))}>
+              {c.header}
+            </span>
+          );
+        })}
       </div>
 
-      {rows.length === 0 && empty ? (
+      {rows.length === 0 && empty && !loading ? (
         <EmptyState
           icon={empty.icon}
           title={empty.title}
@@ -79,7 +105,8 @@ export function DataTable<T>({
           onCta={empty.onCta}
         />
       ) : (
-        rows.map((row) => (
+        <div className={cn(loading && "opacity-55 transition-opacity")}>
+        {rows.map((row) => (
           /*
            * Rows are focusable and Enter-activatable. A receptionist tabbing
            * through a table with a phone wedged under her chin should never
@@ -113,7 +140,8 @@ export function DataTable<T>({
               </div>
             ))}
           </div>
-        ))
+        ))}
+        </div>
       )}
 
       {footer && <div className="px-3.5 py-2.5 text-[12px] text-muted">{footer}</div>}
