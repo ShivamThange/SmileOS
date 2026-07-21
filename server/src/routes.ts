@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { ok } from "./shared/envelope";
+import { authRouter } from "./modules/auth/auth.routes";
 
 /*
  * API router aggregator (mounted at env.API_PREFIX). Domain module routers are
@@ -10,7 +11,8 @@ export const apiRouter = Router();
 
 apiRouter.get("/", (_req, res) => ok(res, { name: "DentalOS API", version: "v1" }));
 
-// Domain modules mount below as they land:
-// apiRouter.use("/auth", authRouter);
+apiRouter.use("/auth", authRouter);
+
+// Further domain modules mount below as they land:
 // apiRouter.use("/patients", patientRouter);
 // ...

@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { env, corsOrigins } from "./config/env";
 import { requestId } from "./middleware/request-id";
 import { globalLimiter } from "./middleware/rate-limit";
@@ -38,6 +39,7 @@ export function createApp(): Express {
   app.use(helmet());
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+  app.use(cookieParser());
 
   // Health is unauthenticated and unlimited.
   app.use("/", healthRouter);
