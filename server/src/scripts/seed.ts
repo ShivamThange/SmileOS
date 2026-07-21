@@ -89,9 +89,14 @@ export async function seedClinic(): Promise<string> {
     const firstName = male ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F);
     const lastName = pick(LAST_NAMES);
     const seq = i + 1;
+    // A known portal test patient at seq 1; the rest get plausible emails so the
+    // portal login (T1.3) has data to authenticate against.
+    const email = seq === 1
+      ? "patient@meherdental.in"
+      : `${firstName}.${lastName}.${seq}@example.in`.toLowerCase();
     const patient = await PatientModel.create({
       clinicId, patientNumber: `MDC-${String(seq).padStart(4, "0")}`, firstName, lastName,
-      gender: male ? "male" : "female", ageFallback: randInt(18, 72), phone: phone(),
+      gender: male ? "male" : "female", ageFallback: randInt(18, 72), phone: phone(), email,
       address: { locality: pick(LOCALITIES), city: "Pune" }, status: "active",
       firstVisit: daysAgo(randInt(30, 540)), lastVisit: daysAgo(randInt(1, 120)),
       createdBy: owner._id,
