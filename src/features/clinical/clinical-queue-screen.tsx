@@ -6,7 +6,7 @@ import { Panel, MicroLabel } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { appointments } from "@/lib/mock-data";
+import { appointments, patients } from "@/lib/mock-data";
 import { fmtHour } from "@/lib/format";
 
 /*
@@ -63,7 +63,20 @@ export function ClinicalQueueScreen() {
                 : a.status === "arrived"
                   ? <Button size="sm" variant="primary" onClick={() => showToast(`Seating ${a.name} in ${a.chair}`)}>Seat</Button>
                   : <Button size="sm" variant="secondary" onClick={() => showToast(`${a.name} not yet arrived`)}>Await</Button>}
-              <Button size="sm" variant="ghost" onClick={() => navigate("/app/patients/p1")}>Chart</Button>
+              {/*
+               * Straight to the charting screen for this patient. Appointments
+               * carry a name rather than a patient id in the mock data, so this
+               * matches by name and falls back to the seeded record.
+               */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  navigate(`/app/clinical/chart/${patients.find((p) => p.name === a.name)?.id ?? "p1"}`)
+                }
+              >
+                Chart
+              </Button>
             </div>
           </div>
         ))}

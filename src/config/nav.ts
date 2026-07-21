@@ -20,7 +20,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "",
     items: [
-      { id: "dashboard", label: "Dashboard", icon: "dashboard", to: "/app", match: "/app$" },
+      { id: "today", label: "Today", icon: "dashboard", to: "/app", match: "/app$" },
       { id: "schedule", label: "Schedule", icon: "schedule", to: "/app/calendar", match: "/app/calendar" },
       { id: "patients", label: "Patients", icon: "patients", to: "/app/patients", match: "/app/patients" },
       { id: "clinical", label: "Clinical", icon: "clinical", to: "/app/clinical/queue", match: "/app/clinical" },
@@ -38,8 +38,8 @@ export const navGroups: NavGroup[] = [
     items: [
       { id: "operations", label: "Operations", icon: "operations", to: "/app/lab", match: "/app/(lab|inventory|suppliers)", count: 2 },
       { id: "team", label: "Team", icon: "team", to: "/app/staff", match: "/app/(staff|attendance|doctor-performance)" },
-      { id: "insight", label: "Insight", icon: "insight", to: "/app/analytics", match: "/app/(analytics|reports)" },
-      { id: "settings", label: "Settings", icon: "settings", to: "/app/settings", match: "/app/settings" },
+      { id: "insight", label: "Insight", icon: "insight", to: "/app/insight", match: "/app/insight" },
+      { id: "settings", label: "Settings", icon: "settings", to: "/app/settings/profile", match: "/app/settings" },
     ],
   },
 ];
