@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { payments, type Payment, type PayMethod } from "./billing-data";
+import { type Payment, type PayMethod } from "./billing-data";
+import { usePayments } from "./queries";
 
 /* Payments — a chronological ledger of money received, for the day's close. */
 
@@ -16,13 +17,13 @@ const METHOD_TINT: Record<PayMethod, string> = {
 
 export function PaymentsScreen() {
   const { showToast } = useUIStore();
+  const { data: payments = [], isLoading } = usePayments();
   const stats = useMemo(() => {
-    const today = payments.filter((p) => p.date === "20 Jul");
-    const todayTotal = today.reduce((s, p) => s + p.amountPaise, 0);
+    const todayTotal = payments.reduce((s, p) => s + p.amountPaise, 0);
     const byUpi = payments.filter((p) => p.method === "UPI").reduce((s, p) => s + p.amountPaise, 0);
     const total = payments.reduce((s, p) => s + p.amountPaise, 0);
-    return { todayTotal, todayCount: today.length, byUpi, total };
-  }, []);
+    return { todayTotal, todayCount: payments.length, byUpi, total };
+  }, [payments]);
 
   const columns: Column<Payment>[] = [
     { key: "when", header: "WHEN", width: "0.8fr", render: (p) => (
@@ -45,7 +46,7 @@ export function PaymentsScreen() {
         <StatCard label="Payments (list)" value={String(payments.length)} sub="recent receipts" />
         <StatCard label="Total shown" value={inr(stats.total)} sub="across the ledger" />
       </div>
-      <DataTable columns={columns} rows={payments} rowKey={(p) => p.id} onRowClick={(p) => showToast(`Receipt ${p.against} — ${inr(p.amountPaise)} from ${p.patient}`)}
+      <DataTable columns={columns} rows={payments} rowKey={(p) => p.id} loading={isLoading} onRowClick={(p) => showToast(`Receipt ${p.against} — ${inr(p.amountPaise)} from ${p.patient}`)}
         footer={`${payments.length} payments`} empty={{ icon: "revenue", title: "No payments yet", body: "Received payments will appear here." }} />
     </div>
   );
