@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { invoices, invoiceBalance, INVOICE_STATUS_META, type Invoice, type InvoiceStatus } from "./billing-data";
+import { invoiceBalance, INVOICE_STATUS_META, type Invoice, type InvoiceStatus } from "./billing-data";
+import { useInvoices } from "./queries";
 
 /* Invoices — the billing worklist: what's raised, what's paid, what's owed. */
 
@@ -21,15 +22,16 @@ const FILTERS: { key: InvoiceStatus | "all"; label: string }[] = [
 export function InvoicesScreen() {
   const { showToast } = useUIStore();
   const [filter, setFilter] = useState<InvoiceStatus | "all">("all");
+  const { data: invoices = [], isLoading } = useInvoices();
 
-  const rows = useMemo(() => invoices.filter((i) => filter === "all" || i.status === filter), [filter]);
+  const rows = useMemo(() => invoices.filter((i) => filter === "all" || i.status === filter), [filter, invoices]);
   const stats = useMemo(() => {
-    const collectedToday = invoices.filter((i) => i.date === "20 Jul").reduce((s, i) => s + i.paidPaise, 0);
+    const collectedToday = invoices.reduce((s, i) => s + i.paidPaise, 0);
     const outstanding = invoices.reduce((s, i) => s + invoiceBalance(i), 0);
     const overdue = invoices.filter((i) => i.status === "overdue").reduce((s, i) => s + invoiceBalance(i), 0);
     const raised = invoices.reduce((s, i) => s + i.totalPaise, 0);
     return { collectedToday, outstanding, overdue, raised };
-  }, []);
+  }, [invoices]);
 
   const columns: Column<Invoice>[] = [
     { key: "no", header: "INVOICE", width: "1fr", render: (i) => (
@@ -72,7 +74,7 @@ export function InvoicesScreen() {
           );
         })}
       </div>
-      <DataTable columns={columns} rows={rows} rowKey={(i) => i.id} onRowClick={(i) => showToast(`${i.no} — invoice detail opens`)}
+      <DataTable columns={columns} rows={rows} rowKey={(i) => i.id} loading={isLoading} onRowClick={(i) => showToast(`${i.no} — invoice detail opens`)}
         footer={`Showing ${rows.length} of ${invoices.length}`}
         empty={{ icon: "revenue", title: "No invoices here", body: "Nothing matches this filter." }} />
     </div>
