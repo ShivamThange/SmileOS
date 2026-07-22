@@ -86,7 +86,15 @@ export async function getFullPatient(clinicId: string, patientId: string): Promi
   const patient = await PatientModel.findOne({ _id: patientId, clinicId }).lean();
   if (!patient) throw errors.notFound("Patient");
   const mh = await MedicalHistoryModel.findOne({ clinicId, patient: patientId }).sort({ version: -1 }).lean();
-  return { ...patient, alerts: deriveAlerts(mh), balancePaise: await computePatientBalance(clinicId, patientId) };
+  // Flatten id + name so the record contract matches the list and summary
+  // endpoints (the frontend never has to reconstruct them per surface).
+  return {
+    id: String(patient._id),
+    ...patient,
+    name: [patient.firstName, patient.lastName].filter(Boolean).join(" "),
+    alerts: deriveAlerts(mh),
+    balancePaise: await computePatientBalance(clinicId, patientId),
+  };
 }
 
 export async function checkDuplicate(clinicId: string, phone: string, name?: string): Promise<{ duplicate: boolean; matches: unknown[] }> {
