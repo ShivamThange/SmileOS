@@ -67,6 +67,9 @@ export function AnalyticsScreen() {
         subtitle="Where the practice stands, and what to do about it on Monday."
         aside={
           <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => navigate("/app/insight/reports")}>
+              Reports
+            </Button>
             <Button variant="secondary" onClick={() => navigate("/app/insight/dashboard")}>
               Charts
             </Button>
