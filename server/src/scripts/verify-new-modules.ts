@@ -182,6 +182,22 @@ async function main(): Promise<void> {
   const digestResult = (await jobs.runOwnerDigest()) as { digests: number };
   check("owner-digest queues a digest per owner", digestResult.digests >= 1, digestResult.digests);
 
+  /* ---- Event fan-out: appointment completed ------------------------------ */
+  console.log("\n=== events ===");
+  const events = await import("../jobs/events");
+  const proc = new mongoose.Types.ObjectId();
+  const consumable = await models.InventoryItemModel.create({ clinicId: jClinicId, name: "Anaesthetic", stock: 5, consumable: true, linkedProcedures: [proc] });
+  const evtPatient = await models.PatientModel.create({ clinicId: jClinicId, patientNumber: "P-003", firstName: "Evt", phone: "9000000003", status: "active" });
+  const appt = await models.AppointmentModel.create({ clinicId: jClinicId, patient: evtPatient._id, doctor: new mongoose.Types.ObjectId(), start: new Date(), end: new Date(Date.now() + 1800_000), durationMinutes: 30, procedures: [proc], status: "completed" });
+  await events.onAppointmentCompleted(jClinicId, actorId, String(appt._id));
+  const deducted = await models.InventoryItemModel.findById(consumable._id).lean();
+  check("completion deducts linked consumable 5→4", deducted?.stock === 4, deducted?.stock);
+  const reviewReq = await models.ReviewModel.findOne({ clinicId: jClinicId, appointment: appt._id }).lean();
+  check("completion queues a review request", Boolean(reviewReq));
+  await events.onAppointmentCompleted(jClinicId, actorId, String(appt._id));
+  const reviewCount = await models.ReviewModel.countDocuments({ clinicId: jClinicId, appointment: appt._id });
+  check("review request is not duplicated on re-fire", reviewCount === 1, reviewCount);
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   await mongoose.disconnect();
   await mem.stop();
