@@ -4,17 +4,19 @@ import { StatCard } from "@/components/common/stat-card";
 import { DataTable, type Column } from "@/components/common/data-table";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { labCases, LAB_STATUS_META, type LabCase } from "./operations-data";
+import { LAB_STATUS_META, type LabCase } from "./operations-data";
+import { useLabCases } from "./queries";
 
 /* Lab tracking — work in transit, so nothing surprises the chair. */
 
 export function LabScreen() {
   const { showToast } = useUIStore();
+  const { data: labCases = [], isLoading } = useLabCases();
   const stats = useMemo(() => ({
     inTransit: labCases.filter((c) => ["sent", "in-lab", "returning"].includes(c.status)).length,
     ready: labCases.filter((c) => c.status === "ready").length,
     overdue: labCases.filter((c) => c.status === "overdue").length,
-  }), []);
+  }), [labCases]);
 
   const columns: Column<LabCase>[] = [
     { key: "patient", header: "PATIENT", width: "1.2fr", render: (c) => (
@@ -44,7 +46,7 @@ export function LabScreen() {
         <StatCard label="Ready to fit" value={String(stats.ready)} deltaTone="up" sub="book the patient" />
         <StatCard label="Overdue" value={String(stats.overdue)} delta="chase the lab" deltaTone="down" />
       </div>
-      <DataTable columns={columns} rows={labCases} rowKey={(c) => c.id} onRowClick={(c) => showToast(`${c.work} — case detail opens`)}
+      <DataTable columns={columns} rows={labCases} rowKey={(c) => c.id} loading={isLoading} onRowClick={(c) => showToast(`${c.work} — case detail opens`)}
         footer={`${labCases.length} cases`} empty={{ icon: "operations", title: "No lab work out", body: "Cases sent to the lab appear here." }} />
     </div>
   );
