@@ -23,6 +23,7 @@ const PortalHome = lazy(() => import("@/features/portal/portal-home").then((m) =
 const PortalPlan = lazy(() => import("@/features/portal/portal-plan").then((m) => ({ default: m.PortalPlan })));
 const TreatmentPlanScreen = lazy(() => import("@/features/treatment-plan/treatment-plan-screen").then((m) => ({ default: m.TreatmentPlanScreen })));
 const CostCalculatorScreen = lazy(() => import("@/features/cost-calculator/cost-calculator-screen").then((m) => ({ default: m.CostCalculatorScreen })));
+const BookingScreen = lazy(() => import("@/features/booking/booking-screen").then((m) => ({ default: m.BookingScreen })));
 
 /*
  * Suspense wrapper for the lazily-loaded standalone surfaces.
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
   { path: "/plan", element: patientSurface(<TreatmentPlanScreen />) },
   { path: "/plan/:id", element: patientSurface(<TreatmentPlanScreen />) },
   { path: "/calculator", element: patientSurface(<CostCalculatorScreen />) },
+  { path: "/book", element: patientSurface(<BookingScreen />) },
 
   {
     path: "/app",

@@ -165,7 +165,7 @@ export function SiteScreen() {
               : <a key={n.label} href={n.href} className="text-muted-strong hover:text-primary no-underline">{n.label}</a>)}
           </nav>
           <Link to="/portal/login" className="text-[13px] font-medium text-muted-strong hover:text-primary no-underline max-sm:hidden">Patient login</Link>
-          <div onClick={scrollToBook} className="text-[13px] font-semibold px-5 py-2.5 rounded-[10px] bg-primary text-on-primary cursor-pointer hover:bg-primary-hover">Book a visit</div>
+          <Link to="/book" className="text-[13px] font-semibold px-5 py-2.5 rounded-[10px] bg-primary text-on-primary no-underline hover:bg-primary-hover">Book a visit</Link>
         </div>
       </header>
 
@@ -184,7 +184,7 @@ export function SiteScreen() {
               down, and sterilisation you can watch happen.
             </p>
             <div className="flex gap-3 mt-7 flex-wrap">
-              <div onClick={scrollToBook} className="text-[15px] font-semibold px-7 py-[15px] rounded-xl bg-primary text-on-primary cursor-pointer hover:bg-primary-hover" style={{ boxShadow: "0 6px 18px rgba(32,97,78,0.22)" }}>Book a visit</div>
+              <Link to="/book" className="text-[15px] font-semibold px-7 py-[15px] rounded-xl bg-primary text-on-primary no-underline hover:bg-primary-hover" style={{ boxShadow: "0 6px 18px rgba(32,97,78,0.22)" }}>Book a visit</Link>
               <div onClick={whatsapp} className="text-[15px] font-semibold px-7 py-[15px] rounded-xl border-[1.5px] border-[#D8D1C1] bg-white cursor-pointer hover:border-primary">WhatsApp us</div>
             </div>
             <div className="flex items-center gap-5 mt-[30px] flex-wrap">
