@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ToothArch, type ToothStyle } from "@/components/domain/tooth-arch";
 import { useLocalToast, LocalToast } from "@/components/common/local-toast";
 import { clinicConfig } from "@/config/clinic";
+import { calcEstimate, type CalcEstimate, type EstimateInput } from "./api";
 
 /*
  * Cost Calculator — public, honest cost estimator (Calculator.dc.html). Three
@@ -14,18 +15,19 @@ import { clinicConfig } from "@/config/clinic";
 type TreatmentKey = "implants" | "braces" | "rct" | "smile" | "fullmouth";
 type Step = "treatment" | "amount" | "tier";
 
-const TREATMENTS: Record<TreatmentKey, { name: string; glyph: string; hint: string; base: number }> = {
-  implants: { name: "Dental implants", glyph: "⌾", hint: "Replacing one or more missing teeth", base: 32000 },
-  braces: { name: "Braces & aligners", glyph: "〰", hint: "Straightening crooked or crowded teeth", base: 45000 },
-  rct: { name: "Root canal & crown", glyph: "◉", hint: "Saving and capping a painful tooth", base: 9500 },
-  smile: { name: "Smile design", glyph: "✦", hint: "Veneers & bonding for a brighter smile", base: 8000 },
-  fullmouth: { name: "Full-mouth work", glyph: "▦", hint: "Rebuilding a worn or damaged bite", base: 150000 },
+// Labels only — base prices live server-side and never reach the browser.
+const TREATMENTS: Record<TreatmentKey, { name: string; glyph: string; hint: string }> = {
+  implants: { name: "Dental implants", glyph: "⌾", hint: "Replacing one or more missing teeth" },
+  braces: { name: "Braces & aligners", glyph: "〰", hint: "Straightening crooked or crowded teeth" },
+  rct: { name: "Root canal & crown", glyph: "◉", hint: "Saving and capping a painful tooth" },
+  smile: { name: "Smile design", glyph: "✦", hint: "Veneers & bonding for a brighter smile" },
+  fullmouth: { name: "Full-mouth work", glyph: "▦", hint: "Rebuilding a worn or damaged bite" },
 };
 
 const TIERS = {
-  standard: { name: "Standard", multiplier: "base price", mult: 1, desc: "Trusted, well-proven materials — Indian and Korean implant systems, metal-ceramic crowns. Does the job well and lasts." },
-  premium: { name: "Premium", multiplier: "+40%", mult: 1.4, desc: "Global-brand implants (Osstem, Straumann range), full-zirconia crowns matched to your shade. Better aesthetics and track record." },
-  luxury: { name: "Luxury", multiplier: "+90%", mult: 1.9, desc: "Top-tier Swiss implants, layered e-max/zirconia by a master ceramist, digital smile design. For the most natural, lasting result." },
+  standard: { name: "Standard", multiplier: "Best value", desc: "Trusted, well-proven materials — Indian and Korean implant systems, metal-ceramic crowns. Does the job well and lasts." },
+  premium: { name: "Premium", multiplier: "Popular", desc: "Global-brand implants (Osstem, Straumann range), full-zirconia crowns matched to your shade. Better aesthetics and track record." },
+  luxury: { name: "Luxury", multiplier: "Top-tier", desc: "Top-tier Swiss implants, layered e-max/zirconia by a master ceramist, digital smile design. For the most natural, lasting result." },
 } as const;
 type TierKey = keyof typeof TIERS;
 
@@ -47,6 +49,8 @@ export function CostCalculatorScreen() {
   const [severity, setSeverity] = useState<string | null>(null);
   const [tier, setTier] = useState<TierKey | null>(null);
   const [done, setDone] = useState(false);
+  const [result, setResult] = useState<CalcEstimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
 
   const teethCount = Object.values(teeth).filter(Boolean).length;
   const tr = treatment ? TREATMENTS[treatment] : null;
@@ -93,48 +97,18 @@ export function CostCalculatorScreen() {
 
   const computeQty = () => {
     if (treatment === "implants") return Math.max(1, teethCount);
-    if (treatment === "smile") return ({ few: 6, half: 8, full: 10 } as Record<string, number>)[severity ?? ""] ?? 6;
-    return 1;
+    return undefined;
   };
 
-  // Result
-  let low = 0;
-  let high = 0;
-  let summary = "";
-  let breakdown: { label: string; value: string }[] = [];
-  let assumptions: string[] = [];
-  if (tier && tr && treatment) {
-    const t = TIERS[tier];
-    let qty = computeQty();
-    let unit = tr.base;
-    if (treatment === "braces") {
-      unit = ({ metal_mild: 45000, ceramic_mod: 75000, aligner_mild: 90000, aligner_full: 160000 } as Record<string, number>)[braceType ?? ""] ?? 45000;
-      qty = 1;
-    }
-    if (treatment === "fullmouth") { unit = severity === "both" ? 300000 : 150000; qty = 1; }
-    const mid = unit * qty * t.mult;
-    low = mid * 0.85;
-    high = mid * 1.15;
-    summary = `${tr.name} · ${t.name} tier`;
-    if (treatment === "implants" || treatment === "smile") {
-      const qtyLabel = treatment === "implants" ? `${qty} implant${qty > 1 ? "s" : ""}` : `${qty} veneers`;
-      breakdown = [
-        { label: `${treatment === "implants" ? "Per implant + crown" : "Per veneer"} (${t.name})`, value: inr(unit * t.mult) },
-        { label: "Quantity", value: qtyLabel },
-        { label: "Consultation & X-ray", value: "included" },
-      ];
-    } else {
-      breakdown = [
-        { label: `${tr.name} (${t.name})`, value: inr(unit * t.mult) },
-        { label: "Consultation & planning", value: "included" },
-      ];
-    }
-    assumptions = [
-      "No hidden gum or bone treatment is needed before we start.",
-      "Prices include follow-up visits and adjustments.",
-    ];
-    if (treatment === "implants") assumptions.push("Assumes adequate bone — a scan confirms this at your visit.");
-  }
+  // Result comes from the server (spec 4.9) — the browser never holds prices.
+  const low = result ? result.lowPaise / 100 : 0;
+  const high = result ? result.highPaise / 100 : 0;
+  const summary = result && tier ? `${result.treatment} · ${TIERS[tier].name} tier` : "";
+  const breakdown: { label: string; value: string }[] = (result?.breakdown ?? []).map((b) => ({
+    label: b.label,
+    value: b.valuePaise != null ? inr(b.valuePaise / 100) : String(b.value ?? ""),
+  }));
+  const assumptions = result?.assumptions ?? [];
 
   const stepAnswered = step === "treatment" ? !!treatment : step === "amount" ? amountAnswered : !!tier;
 
@@ -143,12 +117,33 @@ export function CostCalculatorScreen() {
       ? { bg: "#20614E", border: "#17493A", shadow: "0 2px 8px rgba(32,97,78,0.3)" }
       : { bg: "#FBF9F4", border: "#DDD6C7" };
 
+  async function fetchEstimate() {
+    if (!treatment || !tier) return;
+    const input: EstimateInput = { treatment, tier };
+    const qty = computeQty();
+    if (qty != null) input.quantity = qty;
+    if (treatment === "braces" && braceType) input.braceType = braceType;
+    if (treatment === "smile" || treatment === "fullmouth") input.severity = severity ?? undefined;
+    setEstimating(true);
+    try {
+      const r = await calcEstimate(input);
+      setResult(r);
+      setDone(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      show("Couldn't fetch an estimate just now — please try again");
+    } finally {
+      setEstimating(false);
+    }
+  }
+
   const next = () => {
     if (!stepAnswered) { show(step === "treatment" ? "Pick a treatment to continue" : "Make a choice to continue"); return; }
-    if (step === "tier") { setDone(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    if (estimating) return;
+    if (step === "tier") void fetchEstimate();
     else setStep(STEP_ORDER[idx + 1]);
   };
-  const restart = () => { setStep("treatment"); setTreatment(null); setTeeth({}); setBraceType(null); setSeverity(null); setTier(null); setDone(false); };
+  const restart = () => { setStep("treatment"); setTreatment(null); setTeeth({}); setBraceType(null); setSeverity(null); setTier(null); setDone(false); setResult(null); };
 
   return (
     <div className="min-h-screen font-sans text-[#26241F] bg-[#EFEBE3] flex justify-center px-4">
@@ -273,7 +268,7 @@ export function CostCalculatorScreen() {
               )}
               <div onClick={next} className="flex-1 text-center text-[14.5px] font-semibold py-[13px] rounded-[11px] text-on-primary cursor-pointer hover:opacity-90"
                 style={{ background: stepAnswered ? "#20614E" : "#B3AD9F" }}>
-                {step === "tier" ? "See my estimate" : "Continue"}
+                {step === "tier" ? (estimating ? "Calculating…" : "See my estimate") : "Continue"}
               </div>
             </div>
           </>
