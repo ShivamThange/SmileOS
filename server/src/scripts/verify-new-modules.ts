@@ -213,6 +213,20 @@ async function main(): Promise<void> {
   const csv = reports.toCsv(revenue);
   check("report exports as CSV with a header row", csv.split("\n")[0].includes("period"), csv.split("\n")[0]);
 
+  /* ---- Compliance / DPDP ------------------------------------------------- */
+  console.log("\n=== compliance ===");
+  const compliance = await import("../modules/compliance/compliance.service");
+  const dpdpPatient = await models.PatientModel.create({ clinicId: jClinicId, patientNumber: "P-004", firstName: "Priya", lastName: "Sharma", phone: "9000000004", email: "priya@x.in", dob: new Date(1992, 3, 1), status: "active", marketingConsent: { whatsapp: true, sms: true, email: true } });
+  const exportData = await compliance.patientDataExport(jClinicId, String(dpdpPatient._id)) as { counts: Record<string, number>; patient: unknown };
+  check("data export assembles patient + record counts", typeof exportData.counts.appointments === "number" && Boolean(exportData.patient));
+  await compliance.withdrawConsent(jClinicId, actorId, String(dpdpPatient._id));
+  const afterWithdraw = await models.PatientModel.findById(dpdpPatient._id).lean();
+  check("consent withdrawal clears all channels", afterWithdraw?.marketingConsent?.whatsapp === false && afterWithdraw?.marketingConsent?.email === false);
+  await compliance.anonymisePatient(jClinicId, actorId, String(dpdpPatient._id));
+  const erased = await models.PatientModel.findById(dpdpPatient._id).lean();
+  check("erasure redacts direct identifiers", erased?.firstName === "Redacted" && !erased?.email && !erased?.dob);
+  check("erasure retains the record + tags it", erased?.tags?.includes("erased") === true);
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   await mongoose.disconnect();
   await mem.stop();
