@@ -34,3 +34,35 @@ export interface ApiPayment {
 export function listPayments(): Promise<ApiResult<ApiPayment[]>> {
   return api.getPage<ApiPayment[]>("/payments", { query: { limit: 100 } });
 }
+
+export interface PendingPaymentRow {
+  id: string;
+  invoiceNumber: string;
+  patient?: { firstName?: string; lastName?: string } | null;
+  totalPaise: number;
+  balancePaise: number;
+  ageDays: number;
+  date: string;
+}
+export interface PendingPayments {
+  rows: PendingPaymentRow[];
+  under30Paise: number;
+  over30Paise: number;
+  totalPaise: number;
+  count: number;
+}
+export function getPendingPayments(): Promise<PendingPayments> {
+  return api.get<PendingPayments>("/revenue/pending-payments");
+}
+
+export interface ApiExpense {
+  _id: string;
+  date: string;
+  category: string;
+  vendor?: string;
+  description?: string;
+  amountPaise: number;
+}
+export function listExpenses(): Promise<ApiResult<ApiExpense[]>> {
+  return api.getPage<ApiExpense[]>("/expenses", { query: { limit: 100 } });
+}

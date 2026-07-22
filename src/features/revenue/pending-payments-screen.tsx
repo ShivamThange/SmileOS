@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { receivablesAging, invoiceBalance, type Invoice } from "./billing-data";
+import { invoiceBalance, type Invoice } from "./billing-data";
+import { usePendingPayments } from "./queries";
 
 /* Pending payments — receivables, oldest first, with aging buckets to chase. */
 
 export function PendingPaymentsScreen() {
   const { showToast } = useUIStore();
-  const aging = useMemo(receivablesAging, []);
+  const { data: aging = { under30: 0, over30: 0, total: 0, count: 0, outstanding: [] }, isLoading } = usePendingPayments();
   const rows = useMemo(() => [...aging.outstanding].sort((a, b) => b.ageDays - a.ageDays), [aging]);
 
   const columns: Column<Invoice>[] = [
@@ -44,7 +45,7 @@ export function PendingPaymentsScreen() {
         <StatCard label="30 days & older" value={inr(aging.over30)} delta="chase now" deltaTone="down" />
         <StatCard label="Total receivable" value={inr(aging.total)} sub={`${aging.count} open invoices`} />
       </div>
-      <DataTable columns={columns} rows={rows} rowKey={(i) => i.id} onRowClick={(i) => showToast(`${i.no} — invoice detail opens`)}
+      <DataTable columns={columns} rows={rows} rowKey={(i) => i.id} loading={isLoading} onRowClick={(i) => showToast(`${i.no} — invoice detail opens`)}
         footer={`${rows.length} outstanding · oldest first`}
         empty={{ icon: "revenue", title: "Nothing outstanding", body: "Every invoice is settled. Nice." }} />
     </div>
