@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { ok, created } from "../../shared/envelope";
 import { paginate } from "../../shared/list";
+import { parsePageParams, buildPagination } from "../../utils/pagination";
 import { errors } from "../../shared/errors";
 import { recordAudit } from "../../services/audit.service";
 import {
@@ -17,21 +18,37 @@ import * as svc from "./communication.service";
 /* --------------------------------------------------------------- Conversation */
 
 export async function listConversations(req: Request, res: Response): Promise<Response> {
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = { clinicId: req.clinicId };
   if (req.query.status) filter.status = req.query.status;
   if (req.query.channel) filter.channel = req.query.channel;
   if (req.query.assigned) filter.assignedTo = req.query.assigned;
   if (req.query.patient) filter.patient = req.query.patient;
-  return paginate(req, res, ConversationModel, filter, {
-    defaultSort: "lastMessageAt",
-    populate: ["patient", "lead", "assignedTo"],
-    maxLimit: 100,
-    transform: (rows) =>
-      (rows as unknown as Record<string, unknown>[]).map((c) => ({
-        ...c,
-        withinSessionWindow: svc.withinSessionWindow(c as never),
-      })),
-  });
+
+  const { page, limit, skip, sort } = parsePageParams(req, { defaultSort: "lastMessageAt", maxLimit: 100 });
+  const [rows, total] = await Promise.all([
+    ConversationModel.find(filter).sort(sort).skip(skip).limit(limit).populate("patient lead assignedTo").lean(),
+    ConversationModel.countDocuments(filter),
+  ]);
+
+  // Batch the latest message per conversation so the list can show a preview
+  // without an N+1 — one aggregation over the page's conversations.
+  const ids = rows.map((r) => r._id);
+  const last = ids.length
+    ? await MessageModel.aggregate([
+        { $match: { conversation: { $in: ids } } },
+        { $sort: { createdAt: -1 } },
+        { $group: { _id: "$conversation", content: { $first: "$content" }, direction: { $first: "$direction" } } },
+      ])
+    : [];
+  const previewById = new Map(last.map((m) => [String(m._id), m as { content?: string; direction?: string }]));
+
+  const data = rows.map((c) => ({
+    ...c,
+    withinSessionWindow: svc.withinSessionWindow(c as never),
+    lastMessagePreview: previewById.get(String(c._id))?.content ?? "",
+    lastMessageDirection: previewById.get(String(c._id))?.direction ?? null,
+  }));
+  return ok(res, data, { pagination: buildPagination(page, limit, total) });
 }
 
 export async function createConversation(req: Request, res: Response): Promise<Response> {
