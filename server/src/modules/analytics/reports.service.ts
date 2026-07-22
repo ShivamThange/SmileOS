@@ -3,6 +3,7 @@ import { AppointmentModel } from "../../models/appointment.model";
 import { PatientModel } from "../../models/patient.model";
 import { LeadModel } from "../../models/growth.model";
 import { UserModel } from "../../models/user.model";
+import { TreatmentPlanItemModel } from "../../models/treatment-plan.model";
 import { Types } from "mongoose";
 
 /*
@@ -122,12 +123,60 @@ async function leadsSeries(clinicId: string, from: Date, to: Date) {
   };
 }
 
+const ACCEPTED_ITEM = ["accepted", "scheduled", "in_progress", "completed"];
+
+async function caseAcceptanceSeries(clinicId: string, from: Date, to: Date, groupBy: GroupBy) {
+  const rows = await TreatmentPlanItemModel.aggregate([
+    { $match: { clinicId: oid(clinicId), isDeleted: { $ne: true }, presentedAt: { $gte: from, $lte: to } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: FORMAT[groupBy], date: "$presentedAt" } },
+        presented: { $sum: 1 },
+        presentedValuePaise: { $sum: "$lineTotalPaise" },
+        accepted: { $sum: { $cond: [{ $in: ["$status", ACCEPTED_ITEM] }, 1, 0] } },
+        acceptedValuePaise: { $sum: { $cond: [{ $in: ["$status", ACCEPTED_ITEM] }, "$lineTotalPaise", 0] } },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]);
+  const totals = rows.reduce(
+    (acc, r) => ({
+      presented: acc.presented + r.presented,
+      accepted: acc.accepted + r.accepted,
+      presentedValuePaise: acc.presentedValuePaise + r.presentedValuePaise,
+      acceptedValuePaise: acc.acceptedValuePaise + r.acceptedValuePaise,
+    }),
+    { presented: 0, accepted: 0, presentedValuePaise: 0, acceptedValuePaise: 0 },
+  );
+  const series = rows.map((r) => ({
+    period: r._id,
+    presented: r.presented,
+    accepted: r.accepted,
+    acceptanceRatePct: r.presented ? Math.round((r.accepted / r.presented) * 100) : 0,
+    acceptedValuePaise: r.acceptedValuePaise,
+  }));
+  return { series, totals: { ...totals, acceptanceRatePct: totals.presented ? Math.round((totals.accepted / totals.presented) * 100) : 0 } };
+}
+
+async function treatmentsSeries(clinicId: string, from: Date, to: Date) {
+  const rows = await TreatmentPlanItemModel.aggregate([
+    { $match: { clinicId: oid(clinicId), isDeleted: { $ne: true }, presentedAt: { $gte: from, $lte: to }, name: { $ne: null } } },
+    { $group: { _id: "$name", count: { $sum: "$quantity" }, valuePaise: { $sum: "$lineTotalPaise" }, accepted: { $sum: { $cond: [{ $in: ["$status", ACCEPTED_ITEM] }, 1, 0] } } } },
+    { $sort: { valuePaise: -1 } },
+    { $limit: 50 },
+  ]);
+  const totals = rows.reduce((acc, r) => ({ count: acc.count + r.count, valuePaise: acc.valuePaise + r.valuePaise }), { count: 0, valuePaise: 0 });
+  return { series: rows.map((r) => ({ procedure: r._id, count: r.count, valuePaise: r.valuePaise, accepted: r.accepted })), totals };
+}
+
 const SIMPLE: Record<string, (clinicId: string, from: Date, to: Date, groupBy: GroupBy) => Promise<{ series: Record<string, unknown>[]; totals: Record<string, number> }>> = {
   revenue: revenueSeries,
   collections: collectionsSeries,
   appointments: appointmentsSeries,
   patients: patientsSeries,
   leads: (clinicId, from, to) => leadsSeries(clinicId, from, to),
+  "case-acceptance": caseAcceptanceSeries,
+  treatments: (clinicId, from, to) => treatmentsSeries(clinicId, from, to),
 };
 
 export const REPORT_TYPES = [...Object.keys(SIMPLE), "doctors"] as const;

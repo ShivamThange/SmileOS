@@ -212,6 +212,13 @@ async function main(): Promise<void> {
   check("collections report totals the payment", collections.totals.collectedPaise === 500000, collections.totals.collectedPaise);
   const csv = reports.toCsv(revenue);
   check("report exports as CSV with a header row", csv.split("\n")[0].includes("period"), csv.split("\n")[0]);
+  const plan = await models.TreatmentPlanModel.create({ clinicId: jClinicId, patient: evtPatient._id, doctor: doctorId, status: "presented" });
+  await models.TreatmentPlanItemModel.create({ clinicId: jClinicId, plan: plan._id, patient: evtPatient._id, name: "Implant", quantity: 1, lineTotalPaise: 400000, status: "accepted", presentedAt: new Date() });
+  await models.TreatmentPlanItemModel.create({ clinicId: jClinicId, plan: plan._id, patient: evtPatient._id, name: "Crown", quantity: 1, lineTotalPaise: 100000, status: "declined", presentedAt: new Date() });
+  const acceptance = await reports.runReport("case-acceptance", jClinicId, range);
+  check("case-acceptance report computes rate (1 of 2 = 50%)", acceptance.totals.acceptanceRatePct === 50, acceptance.totals.acceptanceRatePct);
+  const treatments = await reports.runReport("treatments", jClinicId, range);
+  check("treatments report ranks procedures by value", (treatments.series[0] as { procedure: string }).procedure === "Implant", treatments.series[0]);
 
   /* ---- Compliance / DPDP ------------------------------------------------- */
   console.log("\n=== compliance ===");
