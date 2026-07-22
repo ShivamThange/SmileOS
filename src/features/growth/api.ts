@@ -21,11 +21,10 @@ export function listRecalls(): Promise<ApiResult<ApiRecall[]>> {
 export interface ApiReview {
   _id: string;
   patient?: { firstName?: string; lastName?: string } | null;
-  rating: number;
-  source?: string;
-  channel?: string;
-  comment?: string;
-  text?: string;
+  internalRating?: number;
+  internalFeedback?: string;
+  routedToPublic?: boolean;
+  publicPlatform?: string;
   responseStatus?: string;
   createdAt: string;
 }
