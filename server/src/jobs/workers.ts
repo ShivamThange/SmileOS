@@ -1,21 +1,28 @@
 import { Worker, Queue } from "bullmq";
 import { getRedis, isRedisReady } from "../config/redis";
 import { logger } from "../config/logger";
+import { deliverEmail, type EmailInput } from "../services/email.service";
 import type { QueueName } from "./queue";
 import { SCHEDULED_HANDLERS } from "./handlers";
 
 /*
  * Job workers + scheduler (spec Part 6). Started only when Redis is available;
  * in degraded mode the whole subsystem is skipped (enqueue already no-ops).
- * Processors here are log-based stubs — the real integrations (SMTP, WhatsApp
- * Cloud, PDF render, reconciliation) slot into these handlers.
+ * The email processor performs real delivery; WhatsApp/PDF/reconciliation
+ * remain log-based until their integrations are wired.
  */
 
 const workers: Worker[] = [];
 let scheduler: Queue | null = null;
 
 const PROCESSORS: Record<QueueName, (name: string, data: unknown) => Promise<void>> = {
-  email: async (name, data) => { logger.info("job:email", { name, to: (data as { to?: string }).to }); },
+  email: async (name, data) => {
+    if (name === "send") {
+      await deliverEmail(data as EmailInput);
+      return;
+    }
+    logger.info("job:email", { name, to: (data as { to?: string }).to });
+  },
   whatsapp: async (name) => { logger.info("job:whatsapp", { name }); },
   pdf: async (name) => { logger.info("job:pdf", { name }); },
   analytics: async (name) => { logger.info("job:analytics", { name }); },

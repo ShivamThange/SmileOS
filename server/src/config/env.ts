@@ -26,6 +26,8 @@ const schema = z.object({
   DEFAULT_CLINIC_SLUG: z.string().default("meher-dental-care"),
 
   SMTP_URL: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default("DentalOS <onboarding@resend.dev>"),
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
@@ -34,6 +36,7 @@ const schema = z.object({
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
   S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().default("us-east-1"),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
 });
