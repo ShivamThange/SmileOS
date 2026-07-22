@@ -10,6 +10,8 @@ import { ProcedureModel } from "../../models/procedure.model";
 import { UserModel } from "../../models/user.model";
 import { LeadModel } from "../../models/growth.model";
 import * as calc from "./calculator.service";
+import { publicAvailability } from "./availability.service";
+import { createPublicBooking, abandonBooking } from "./booking.service";
 
 /*
  * Public surface (spec 4.13 / 4.9). Unauthenticated, IP-rate-limited, and never
@@ -44,6 +46,47 @@ publicRouter.get("/doctors", asyncHandler(async (req, res) => {
   const docs = await UserModel.find({ clinicId: c._id, role: "doctor", "doctor.publicProfile": true, active: true })
     .select("name avatarUrl doctor").lean();
   return ok(res, docs.map((d) => ({ name: d.name, avatarUrl: d.avatarUrl, ...d.doctor })));
+}));
+
+/* Online booking — real availability from working hours + capacity (spec 5.3) */
+const availabilityQuery = z.object({
+  doctor: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+  durationMin: z.coerce.number().int().positive().max(480).optional(),
+  days: z.coerce.number().int().positive().max(60).optional(),
+});
+publicRouter.get("/availability", validate({ query: availabilityQuery }), asyncHandler(async (req, res) => {
+  const c = await resolveClinic(clinicSlug(req));
+  const q = req.query as unknown as z.infer<typeof availabilityQuery>;
+  const days = await publicAvailability(String(c._id), { doctorId: q.doctor, durationMin: q.durationMin, days: q.days });
+  return ok(res, days);
+}));
+
+/* Confirmed booking → appointment; abandoned booking → lead (spec 5.3) */
+const bookSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(6),
+  email: z.string().email().optional(),
+  doctor: z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+  start: z.coerce.date(),
+  durationMin: z.number().int().positive().max(480).optional(),
+  treatment: z.string().optional(),
+  note: z.string().optional(),
+});
+publicRouter.post("/book", writeLimit, validate({ body: bookSchema }), asyncHandler(async (req, res) => {
+  const c = await resolveClinic(clinicSlug(req));
+  const result = await createPublicBooking(String(c._id), {
+    name: req.body.name, phone: req.body.phone, email: req.body.email,
+    doctorId: req.body.doctor, start: req.body.start, durationMin: req.body.durationMin,
+    treatment: req.body.treatment, note: req.body.note,
+  });
+  return ok(res, result, { message: "Appointment confirmed" });
+}));
+
+const abandonSchema = z.object({ name: z.string().min(1), phone: z.string().min(6), email: z.string().email().optional(), treatment: z.string().optional() });
+publicRouter.post("/booking/abandon", writeLimit, validate({ body: abandonSchema }), asyncHandler(async (req, res) => {
+  const c = await resolveClinic(clinicSlug(req));
+  const result = await abandonBooking(String(c._id), req.body);
+  return ok(res, result, { message: "We'll follow up on your booking" });
 }));
 
 /* Cost calculator */

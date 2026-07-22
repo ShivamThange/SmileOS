@@ -10,6 +10,7 @@ import { withinSessionWindow } from "../modules/communication/communication.serv
 import { segmentToFilter } from "../modules/reputation/reputation.service";
 import { toCsv } from "../modules/analytics/reports.service";
 import { mongoSanitize } from "../middleware/mongo-sanitize";
+import { computeDaySlots, groupByPartOfDay, saturatedIntervals } from "../modules/public/availability.service";
 
 let failures = 0;
 function check(label: string, cond: boolean, detail?: unknown): void {
@@ -74,6 +75,22 @@ eq("strips dotted keys", sanitize({ "a.b": 1, ok: 2 }).body, { ok: 2 });
 eq("scrubs inside arrays", sanitize({ list: [{ $gt: 1 }, 2] }).body, { list: [{}, 2] });
 eq("leaves clean data intact", sanitize({ n: 1, s: "t", b: true, arr: [1, 2] }).body, { n: 1, s: "t", b: true, arr: [1, 2] });
 eq("sanitises query params too", sanitize({}, { $where: "x", page: "1" }).query, { page: "1" });
+
+/* ---- Public booking availability (slot computation) --------------------- */
+console.log("\n=== booking availability ===");
+const baseSlots = computeDaySlots({ open: "09:00", close: "11:00", durationMin: 30, granularityMin: 30, bufferMin: 0, earliestStartMin: 0 });
+eq("open 09-11, 30min slots → 4 starts", baseSlots, ["09:00", "09:30", "10:00", "10:30"]);
+const withBusy = computeDaySlots({ open: "09:00", close: "11:00", durationMin: 30, granularityMin: 30, bufferMin: 0, busy: [{ startMin: 9 * 60 + 30, endMin: 10 * 60 }], earliestStartMin: 0 });
+check("a booked 09:30 slot is removed", !withBusy.includes("09:30") && withBusy.includes("09:00"), withBusy);
+const withBuffer = computeDaySlots({ open: "09:00", close: "11:00", durationMin: 30, granularityMin: 30, bufferMin: 5, busy: [{ startMin: 10 * 60, endMin: 10 * 60 + 30 }], earliestStartMin: 0 });
+check("buffer blocks the abutting 09:30 slot", !withBuffer.includes("09:30"), withBuffer);
+const withBreak = computeDaySlots({ open: "09:00", close: "12:00", durationMin: 30, granularityMin: 30, bufferMin: 0, breaks: [{ start: "10:00", end: "10:30" }], earliestStartMin: 0 });
+check("lunch break removes its slot", !withBreak.includes("10:00") && withBreak.includes("10:30"), withBreak);
+const withLead = computeDaySlots({ open: "09:00", close: "11:00", durationMin: 30, granularityMin: 30, bufferMin: 0, earliestStartMin: 9 * 60 + 40 });
+eq("lead time pushes first slot to 10:00", withLead[0], "10:00");
+eq("part-of-day grouping", groupByPartOfDay(["09:00", "13:00", "18:00"]), { morning: ["09:00"], afternoon: ["13:00"], evening: ["18:00"] });
+eq("any-doctor: 1 of 2 busy leaves the slot open", saturatedIntervals([{ startMin: 540, endMin: 570 }], 2), []);
+eq("any-doctor: both busy saturates the window", saturatedIntervals([{ startMin: 540, endMin: 570 }, { startMin: 540, endMin: 570 }], 2), [{ startMin: 540, endMin: 570 }]);
 
 console.log(`\n${failures === 0 ? "ALL LOGIC CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
 process.exit(failures === 0 ? 0 : 1);
