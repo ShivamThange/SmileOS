@@ -119,4 +119,13 @@ export const queryKeys = {
     dashboard: (params: QueryParams = {}) => ["analytics", "dashboard", params] as const,
     revenueAtRisk: () => ["analytics", "revenue-at-risk"] as const,
   },
+
+  portal: {
+    all: ["portal"] as const,
+    me: () => ["portal", "me"] as const,
+    dashboard: () => ["portal", "dashboard"] as const,
+    appointments: () => ["portal", "appointments"] as const,
+    plans: () => ["portal", "plans"] as const,
+    plan: (id: string) => ["portal", "plans", id] as const,
+  },
 } as const;

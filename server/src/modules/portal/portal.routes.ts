@@ -66,6 +66,25 @@ portalRouter.get("/treatment-plans", asyncHandler(async (req, res) => {
   return ok(res, rows);
 }));
 
+/** Full plan + its items — the data behind the at-home plan review (spec 4.14).
+ *  Ownership comes from the token; a mismatched path id yields a 404, never
+ *  another patient's plan. */
+portalRouter.get("/treatment-plans/:id", asyncHandler(async (req, res) => {
+  const plan = await TreatmentPlanModel.findOne({ _id: req.params.id, clinicId: req.clinicId, patient: selfId(req) })
+    .select("title status planDate presentedAt discountPct notes")
+    .lean();
+  if (!plan) throw errors.notFound("Treatment plan");
+  const items = await TreatmentPlanItemModel.find({ clinicId: req.clinicId, plan: plan._id })
+    .select("name procedure teeth quantity unitPricePaise discountPaise lineTotalPaise priority sequence status phaseKey justification")
+    .sort({ sequence: 1 })
+    .lean();
+  const grossPaise = items.reduce((s, i) => s + (i.lineTotalPaise ?? 0), 0);
+  const acceptedPaise = items
+    .filter((i) => ["accepted", "scheduled", "in_progress", "completed"].includes(i.status))
+    .reduce((s, i) => s + (i.lineTotalPaise ?? 0), 0);
+  return ok(res, { ...plan, items, totals: { grossPaise, acceptedPaise, itemCount: items.length } });
+}));
+
 portalRouter.get("/invoices", asyncHandler(async (req, res) => {
   const rows = await InvoiceModel.find({ clinicId: req.clinicId, patient: selfId(req) }).sort({ date: -1 }).select("invoiceNumber date totalPaise status").lean();
   return ok(res, rows);
