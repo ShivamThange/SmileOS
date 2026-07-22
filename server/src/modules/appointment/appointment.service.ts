@@ -1,8 +1,10 @@
 import { Types } from "mongoose";
-import { AppointmentModel, type AppointmentDoc } from "../../models/appointment.model";
+import { AppointmentModel, OperatoryModel, type AppointmentDoc } from "../../models/appointment.model";
 import { RecallModel } from "../../models/recall.model";
 import { ProcedureModel } from "../../models/procedure.model";
 import { PatientModel } from "../../models/patient.model";
+import { UserModel } from "../../models/user.model";
+import { ClinicModel } from "../../models/clinic.model";
 import { APPOINTMENT_TRANSITIONS, type AppointmentStatus } from "../../shared/enums";
 import { AppError, ERROR_CODES, errors } from "../../shared/errors";
 import { enqueue } from "../../jobs/queue";
@@ -114,9 +116,48 @@ async function onCompleted(appt: AppointmentDoc): Promise<void> {
 
 /** Calendar payload: appointments plus the range's resources in one shape (spec 4.5). */
 export async function calendarPayload(clinicId: string, from: Date, to: Date): Promise<Record<string, unknown>> {
-  const appointments = await AppointmentModel.find({ clinicId, start: { $gte: from, $lte: to } })
-    .select("patient doctor operatory operatoryLabel start end status type chiefComplaint colorOverride")
-    .populate("patient", "firstName lastName phone")
-    .lean();
-  return { range: { from, to }, appointments };
+  // One payload the calendar can render from without follow-up calls (spec T2.3):
+  // the appointments in range, plus the resources (operatories + doctors) and
+  // the working hours that frame the grid.
+  const [rawAppts, operatories, doctors, clinic] = await Promise.all([
+    AppointmentModel.find({ clinicId, start: { $gte: from, $lte: to } })
+      .select("patient doctor operatory operatoryLabel start end status type chiefComplaint colorOverride noShow")
+      .populate("patient", "firstName lastName phone")
+      .populate("doctor", "name")
+      .lean(),
+    OperatoryModel.find({ clinicId, active: true }).select("name color").sort({ createdAt: 1 }).lean(),
+    UserModel.find({ clinicId, role: { $in: ["doctor", "owner"] }, active: true }).select("name").lean(),
+    ClinicModel.findById(clinicId).select("workingHours scheduling").lean(),
+  ]);
+
+  const appointments = rawAppts.map((a) => {
+    const patient = a.patient as unknown as { _id: unknown; firstName?: string; lastName?: string; phone?: string } | null;
+    const doctor = a.doctor as unknown as { _id: unknown; name?: string } | null;
+    return {
+      id: String(a._id),
+      patientId: patient ? String(patient._id) : null,
+      patientName: patient ? [patient.firstName, patient.lastName].filter(Boolean).join(" ") : "—",
+      patientPhone: patient?.phone ?? null,
+      doctorId: doctor ? String(doctor._id) : null,
+      doctorName: doctor?.name ?? "—",
+      operatory: a.operatory ? String(a.operatory) : null,
+      operatoryLabel: a.operatoryLabel ?? null,
+      start: a.start,
+      end: a.end,
+      status: a.status,
+      type: a.type,
+      chiefComplaint: a.chiefComplaint ?? null,
+      colorOverride: a.colorOverride ?? null,
+      noShow: a.noShow ?? false,
+    };
+  });
+
+  return {
+    range: { from, to },
+    appointments,
+    operatories: operatories.map((o) => ({ id: String(o._id), name: o.name, color: o.color })),
+    doctors: doctors.map((d) => ({ id: String(d._id), name: d.name })),
+    workingHours: clinic?.workingHours ?? [],
+    scheduling: clinic?.scheduling ?? null,
+  };
 }
