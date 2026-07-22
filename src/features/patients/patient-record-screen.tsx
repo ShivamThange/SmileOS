@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Panel } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -12,6 +12,8 @@ import { useUIStore } from "@/hooks/use-ui-store";
 import { useDeskStore } from "@/hooks/use-desk-store";
 import { usePatient, usePatientSummary } from "./queries";
 import type { PatientRecord, PatientSummary } from "./api";
+import { useChart, useUpdateTooth } from "@/features/clinical/queries";
+import type { ToothRecord } from "@/features/clinical/api";
 import {
   Odontogram,
   ODONTOGRAM_LEGEND,
@@ -166,7 +168,7 @@ export function PatientRecordScreen() {
       {/* Body */}
       <div className="flex-1 max-w-[1360px] w-full mx-auto p-5 box-border">
         {tab === "overview" && <OverviewTab record={record} summary={summary} loading={recordQ.isLoading} />}
-        {tab === "clinical" && <ClinicalTab />}
+        {tab === "clinical" && <ClinicalTab patientId={id} />}
         {tab !== "overview" && tab !== "clinical" && <OtherTab tab={tab} />}
       </div>
     </div>
@@ -277,10 +279,66 @@ const CHART_HISTORY = [
   { date: "9 Dec", tooth: "36", text: "extracted; implant advised" },
 ];
 
-function ClinicalTab() {
+/*
+ * Odontogram ↔ chart record mapping. The odontogram's surface conditions
+ * (caries/filled/wear/planned) are all valid backend tooth conditions, and its
+ * surface keys match the backend's; only the whole-tooth "plannedTooth" differs
+ * from the backend's "planned". Unknown backend conditions (bridge, veneer, …)
+ * the odontogram can't render are skipped on load.
+ */
+const FE_SURFACE_CONDS = new Set(["caries", "filled", "wear", "planned"]);
+const FE_TOOTH_CONDS = new Set(["crown", "rct", "implant", "missing"]);
+
+function findingToToothBody(finding?: Findings[number]): Partial<ToothRecord> {
+  const body: Partial<ToothRecord> = { wholeConditions: [], surfaces: [], presence: "present" };
+  if (finding?.tooth) {
+    body.wholeConditions = [finding.tooth === "plannedTooth" ? "planned" : finding.tooth];
+    body.presence = finding.tooth === "missing" ? "missing" : "present";
+  }
+  if (finding?.surfaces) {
+    body.surfaces = Object.entries(finding.surfaces).map(([surface, condition]) => ({ surface, condition: condition as string }));
+  }
+  return body;
+}
+
+function chartToFindings(teeth: Record<string, ToothRecord>): Findings {
+  const out: Findings = {};
+  for (const [numStr, rec] of Object.entries(teeth ?? {})) {
+    const finding: Findings[number] = {};
+    const whole = rec.wholeConditions?.find((c) => FE_TOOTH_CONDS.has(c) || c === "planned");
+    if (whole) finding.tooth = (whole === "planned" ? "plannedTooth" : whole) as ToothCondition;
+    else if (rec.presence === "missing") finding.tooth = "missing";
+    if (rec.surfaces?.length) {
+      const surfaces: Partial<Record<SurfaceKey, SurfaceCondition>> = {};
+      for (const s of rec.surfaces) {
+        if (FE_SURFACE_CONDS.has(s.condition)) surfaces[s.surface as SurfaceKey] = s.condition as SurfaceCondition;
+      }
+      if (Object.keys(surfaces).length) finding.surfaces = surfaces;
+    }
+    if (finding.tooth || finding.surfaces) out[+numStr] = finding;
+  }
+  return out;
+}
+
+function ClinicalTab({ patientId }: { patientId?: string }) {
   const { showToast } = useUIStore();
-  const [findings, setFindings] = useState<Findings>(SEED_FINDINGS);
+  const chartQ = useChart(patientId);
+  const updateTooth = useUpdateTooth(patientId ?? "");
+  const [findings, setFindings] = useState<Findings>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Hydrate the odontogram from the persisted chart (falls back to the seed
+  // findings only when there is no patient context, e.g. a design preview).
+  useEffect(() => {
+    if (chartQ.data) setFindings(chartToFindings(chartQ.data.teeth));
+    else if (!patientId) setFindings(SEED_FINDINGS);
+  }, [chartQ.data, patientId]);
+
+  /** Persist one tooth's finding through PUT /chart/tooth/:n (append to history). */
+  const persist = (n: number, finding: Findings[number] | undefined) => {
+    if (!patientId) return;
+    updateTooth.mutate({ toothNumber: n, body: findingToToothBody(finding) });
+  };
 
   const toggle = (num: number, key: SurfaceKey) => {
     setSelected((prev) => {
@@ -294,37 +352,34 @@ function ClinicalTab() {
   const selNums = [...new Set([...selected].map((id) => +id.split(":")[0]))];
 
   const applySurface = (cond: SurfaceCondition) => {
-    setFindings((f) => {
-      const next = { ...f };
-      selected.forEach((id) => {
-        const [num, key] = id.split(":");
-        const n = +num;
-        const cur = { ...(next[n] ?? {}) };
-        cur.surfaces = { ...(cur.surfaces ?? {}), [key]: cond };
-        delete cur.tooth;
-        next[n] = cur;
-      });
-      return next;
+    const next = { ...findings };
+    selected.forEach((id) => {
+      const [num, key] = id.split(":");
+      const n = +num;
+      const cur = { ...(next[n] ?? {}) };
+      cur.surfaces = { ...(cur.surfaces ?? {}), [key]: cond };
+      delete cur.tooth;
+      next[n] = cur;
     });
+    setFindings(next);
+    selNums.forEach((n) => persist(n, next[n]));
     showToast(`${SURFACE_CONDITIONS[cond].label} charted on ${selected.size} surface(s)`);
   };
 
   const applyTooth = (cond: ToothCondition) => {
-    setFindings((f) => {
-      const next = { ...f };
-      selNums.forEach((n) => (next[n] = { ...(next[n] ?? {}), tooth: cond }));
-      return next;
-    });
+    const next = { ...findings };
+    selNums.forEach((n) => (next[n] = { ...(next[n] ?? {}), tooth: cond }));
+    setFindings(next);
+    selNums.forEach((n) => persist(n, next[n]));
     setSelected(new Set());
     showToast(`${TOOTH_CONDITIONS[cond].label} set on tooth ${selNums.join(", ")}`);
   };
 
   const clearFinding = () => {
-    setFindings((f) => {
-      const next = { ...f };
-      selNums.forEach((n) => delete next[n]);
-      return next;
-    });
+    const next = { ...findings };
+    selNums.forEach((n) => delete next[n]);
+    setFindings(next);
+    selNums.forEach((n) => persist(n, undefined));
     setSelected(new Set());
     showToast(`Cleared tooth ${selNums.join(", ")}`);
   };
