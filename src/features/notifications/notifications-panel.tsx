@@ -1,14 +1,14 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { buildNotifications, TONE_STYLE } from "./notifications-data";
+import { TONE_STYLE, useNotifications } from "./queries";
 
 /*
- * Notifications dropdown — the header bell's panel. Renders live alerts derived
- * from across the app, each deep-linking to the screen that resolves it.
+ * Notifications dropdown — the header bell's panel. Renders the authenticated
+ * user's real notification feed (`/notifications`), each deep-linking to the
+ * screen that resolves it.
  */
 export function NotificationsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
-  const items = useMemo(buildNotifications, []);
+  const { data: items = [], isLoading } = useNotifications();
   if (!open) return null;
 
   return (
@@ -21,6 +21,12 @@ export function NotificationsPanel({ open, onClose }: { open: boolean; onClose: 
         <span className="text-[10.5px] font-bold text-primary bg-primary-tint border border-primary-tint-border rounded-full px-2 py-px font-mono">{items.length}</span>
       </div>
       <div className="max-h-[420px] overflow-y-auto">
+        {isLoading && items.length === 0 && (
+          <div className="px-3.5 py-6 text-[11.5px] text-muted text-center">Loading…</div>
+        )}
+        {!isLoading && items.length === 0 && (
+          <div className="px-3.5 py-6 text-[11.5px] text-muted text-center">You're all caught up.</div>
+        )}
         {items.map((n) => {
           const t = TONE_STYLE[n.tone];
           return (
