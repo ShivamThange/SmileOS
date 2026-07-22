@@ -182,6 +182,16 @@ async function main(): Promise<void> {
   const digestResult = (await jobs.runOwnerDigest()) as { digests: number };
   check("owner-digest queues a digest per owner", digestResult.digests >= 1, digestResult.digests);
 
+  const soon = new Date(Date.now() + 60 * 60 * 1000); // 1h out → 2h band
+  const remindPatient = await models.PatientModel.create({ clinicId: jClinicId, patientNumber: "P-R1", firstName: "Remind", phone: "9000000010", status: "active" });
+  const upcoming = await models.AppointmentModel.create({ clinicId: jClinicId, patient: remindPatient._id, doctor: new mongoose.Types.ObjectId(), start: soon, end: new Date(soon.getTime() + 1800_000), durationMinutes: 30, status: "confirmed" });
+  const remindResult = (await jobs.runReminderDispatcher()) as { sent: number };
+  check("reminder-dispatcher sends for upcoming appointment", remindResult.sent >= 1, remindResult.sent);
+  const remindedAppt = await models.AppointmentModel.findById(upcoming._id).lean();
+  check("reminder recorded on the appointment (2h band)", (remindedAppt?.reminders ?? []).some((r) => r.hoursBefore === 2));
+  const remindAgain = (await jobs.runReminderDispatcher()) as { sent: number };
+  check("reminder-dispatcher does not double-send the same band", remindAgain.sent === 0, remindAgain.sent);
+
   /* ---- Event fan-out: appointment completed ------------------------------ */
   console.log("\n=== events ===");
   const events = await import("../jobs/events");

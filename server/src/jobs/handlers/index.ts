@@ -3,6 +3,7 @@ import { runOverdueInstalments } from "./overdue-instalments";
 import { runRecallGenerator } from "./recall-generator";
 import { runBirthdayGreetings } from "./birthday-greetings";
 import { runOwnerDigest } from "./owner-digest";
+import { runReminderDispatcher } from "./reminder-dispatcher";
 
 /*
  * Scheduled-job dispatch table. Maps a repeatable job's name (registered in
@@ -12,6 +13,7 @@ import { runOwnerDigest } from "./owner-digest";
  * integrations wired first).
  */
 export const SCHEDULED_HANDLERS: Record<string, () => Promise<unknown>> = {
+  "reminder-dispatcher": runReminderDispatcher,
   "inventory-alerts": runInventoryAlerts,
   "overdue-instalment-reminders": runOverdueInstalments,
   "recall-generator": runRecallGenerator,
@@ -25,4 +27,5 @@ export {
   runRecallGenerator,
   runBirthdayGreetings,
   runOwnerDigest,
+  runReminderDispatcher,
 };
