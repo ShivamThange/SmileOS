@@ -6,17 +6,19 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { suppliers, type Supplier } from "./operations-data";
+import { type Supplier } from "./operations-data";
+import { useSuppliers } from "./queries";
 
 /* Suppliers — labs, consumables and equipment vendors with terms and ratings. */
 
 export function SuppliersScreen() {
   const { showToast } = useUIStore();
+  const { data: suppliers = [], isLoading } = useSuppliers();
   const stats = useMemo(() => ({
     count: suppliers.length,
     outstanding: suppliers.reduce((s, v) => s + v.outstandingPaise, 0),
     labs: suppliers.filter((v) => v.kind.includes("lab")).length,
-  }), []);
+  }), [suppliers]);
 
   const columns: Column<Supplier>[] = [
     { key: "name", header: "SUPPLIER", width: "1.6fr", render: (v) => (
@@ -38,7 +40,7 @@ export function SuppliersScreen() {
         <StatCard label="Outstanding payable" value={inr(stats.outstanding)} deltaTone="warn" sub="across vendors" />
         <StatCard label="Avg rating" value={(suppliers.reduce((s, v) => s + v.rating, 0) / suppliers.length).toFixed(1)} sub="quality & reliability" />
       </div>
-      <DataTable columns={columns} rows={suppliers} rowKey={(v) => v.id} onRowClick={(v) => showToast(`${v.name} — order history opens`)}
+      <DataTable columns={columns} rows={suppliers} rowKey={(v) => v.id} loading={isLoading} onRowClick={(v) => showToast(`${v.name} — order history opens`)}
         footer={`${suppliers.length} suppliers`} empty={{ icon: "operations", title: "No suppliers", body: "Add vendors to track terms and orders." }} />
     </div>
   );
