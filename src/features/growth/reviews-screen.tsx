@@ -4,7 +4,8 @@ import { StatCard } from "@/components/common/stat-card";
 import { Panel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { reviews, reviewStats, type Review } from "./growth-data";
+import { type Review } from "./growth-data";
+import { useReviews } from "./queries";
 
 /*
  * Reviews — ask a private rating first, route the happy ones to Google and
@@ -23,7 +24,16 @@ const ROUTED_META: Record<Review["routed"], { label: string; bg: string; color: 
 
 export function ReviewsScreen() {
   const { showToast } = useUIStore();
-  const stats = useMemo(reviewStats, []);
+  const { data: reviews = [] } = useReviews();
+  const stats = useMemo(() => {
+    const avg = reviews.reduce((s, r) => s + r.rating, 0) / (reviews.length || 1);
+    return {
+      avg,
+      total: reviews.length,
+      googleCount: reviews.filter((r) => r.routed === "google").length,
+      caught: reviews.filter((r) => r.routed === "recovery").length,
+    };
+  }, [reviews]);
 
   return (
     <div className="max-w-[1240px] mx-auto flex flex-col gap-3.5">
