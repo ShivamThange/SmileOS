@@ -2,6 +2,7 @@ import { Worker, Queue } from "bullmq";
 import { getRedis, isRedisReady } from "../config/redis";
 import { logger } from "../config/logger";
 import type { QueueName } from "./queue";
+import { SCHEDULED_HANDLERS } from "./handlers";
 
 /*
  * Job workers + scheduler (spec Part 6). Started only when Redis is available;
@@ -20,6 +21,20 @@ const PROCESSORS: Record<QueueName, (name: string, data: unknown) => Promise<voi
   analytics: async (name) => { logger.info("job:analytics", { name }); },
   maintenance: async (name) => { logger.info("job:maintenance", { name }); },
 };
+
+/*
+ * Dispatch a job: a registered scheduled handler does the real domain work
+ * (inventory alerts, overdue reminders, recall generation, …); everything else
+ * falls through to the queue's log-only processor.
+ */
+async function dispatch(queue: QueueName, name: string, data: unknown): Promise<void> {
+  const handler = SCHEDULED_HANDLERS[name];
+  if (handler) {
+    await handler();
+    return;
+  }
+  await PROCESSORS[queue](name, data);
+}
 
 /** Scheduled jobs (spec Part 6) — cron in UTC; cadences match the spec table. */
 const SCHEDULES: { name: string; cron: string; queue: QueueName }[] = [
@@ -44,7 +59,7 @@ export function startJobs(): void {
   const connection = getRedis()!;
 
   for (const q of Object.keys(PROCESSORS) as QueueName[]) {
-    const worker = new Worker(q, async (job) => PROCESSORS[q](job.name, job.data), { connection, concurrency: 5 });
+    const worker = new Worker(q, async (job) => dispatch(q, job.name, job.data), { connection, concurrency: 5 });
     worker.on("failed", (job, err) => logger.error("job failed", { queue: q, name: job?.name, error: err.message }));
     workers.push(worker);
   }

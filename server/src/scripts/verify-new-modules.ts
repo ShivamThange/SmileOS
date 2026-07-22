@@ -141,6 +141,47 @@ async function main(): Promise<void> {
   const perf = await users.doctorPerformance(clinicId, String(doc._id), new Date(Date.now() - 86_400_000), new Date());
   check("doctor performance returns a shape", typeof perf.caseAcceptanceRate === "number");
 
+  /* ---- Background jobs: scheduled handlers ------------------------------- */
+  console.log("\n=== jobs ===");
+  const jobs = await import("../jobs/handlers");
+  // A real clinic + owner/admin so the cluster-wide handlers have a tenant.
+  const clinic = await models.ClinicModel.create({ name: "Meher Dental", slug: `meher-${Date.now()}` });
+  const jClinicId = String(clinic._id);
+  const admin = await models.UserModel.create({ clinicId: jClinicId, name: "Owner", email: `owner-${Date.now()}@x.in`, role: "owner", active: true });
+  void admin;
+
+  await models.InventoryItemModel.create({ clinicId: jClinicId, name: "Gloves", stock: 1, reorderLevel: 10 });
+  const invResult = (await jobs.runInventoryAlerts()) as { alerts: number };
+  check("inventory-alerts notifies on low stock", invResult.alerts >= 1, invResult.alerts);
+  const secondRun = (await jobs.runInventoryAlerts()) as { alerts: number };
+  check("inventory-alerts is idempotent within a day", secondRun.alerts === 0, secondRun.alerts);
+
+  await models.InstalmentPlanModel.create({
+    clinicId: jClinicId,
+    patient: new mongoose.Types.ObjectId(),
+    totalPaise: 300000,
+    status: "active",
+    schedule: [{ sequence: 1, dueDate: new Date(Date.now() - 5 * 86_400_000), amountPaise: 100000, status: "pending" }],
+  });
+  const instResult = (await jobs.runOverdueInstalments()) as { plans: number; reminders: number };
+  check("overdue-instalments marks + reminds", instResult.reminders >= 1, instResult);
+  const instAfter = await models.InstalmentPlanModel.findOne({ clinicId: jClinicId }).lean();
+  check("instalment entry flipped to overdue", instAfter?.schedule?.[0]?.status === "overdue");
+
+  await models.PatientModel.create({ clinicId: jClinicId, patientNumber: "P-001", firstName: "Lapsed", phone: "9000000001", status: "active", lastVisit: new Date(Date.now() - 200 * 86_400_000) });
+  const recallResult = (await jobs.runRecallGenerator()) as { created: number };
+  check("recall-generator creates for lapsed patient", recallResult.created >= 1, recallResult.created);
+  const recallAgain = (await jobs.runRecallGenerator()) as { created: number };
+  check("recall-generator skips patients with an open recall", recallAgain.created === 0, recallAgain.created);
+
+  const bday = new Date(); bday.setFullYear(1990);
+  await models.PatientModel.create({ clinicId: jClinicId, patientNumber: "P-002", firstName: "Birthday", phone: "9000000002", status: "active", dob: bday, marketingConsent: { whatsapp: true } });
+  const bdayResult = (await jobs.runBirthdayGreetings()) as { greeted: number };
+  check("birthday-greetings queues today's birthdays", bdayResult.greeted >= 1, bdayResult.greeted);
+
+  const digestResult = (await jobs.runOwnerDigest()) as { digests: number };
+  check("owner-digest queues a digest per owner", digestResult.digests >= 1, digestResult.digests);
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   await mongoose.disconnect();
   await mem.stop();
