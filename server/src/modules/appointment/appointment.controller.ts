@@ -5,6 +5,7 @@ import { AppointmentModel } from "../../models/appointment.model";
 import { recordAudit } from "../../services/audit.service";
 import { errors } from "../../shared/errors";
 import { enqueue } from "../../jobs/queue";
+import { onAppointmentCompleted } from "../../jobs/events";
 import * as svc from "./appointment.service";
 import type { AppointmentStatus } from "../../shared/enums";
 
@@ -55,10 +56,15 @@ export async function reschedule(req: Request, res: Response): Promise<Response>
   return ok(res, appt);
 }
 
-function transitionHandler(to: AppointmentStatus, audit: string) {
+function transitionHandler(
+  to: AppointmentStatus,
+  audit: string,
+  after?: (clinicId: string, actorId: string, appointmentId: string) => Promise<void>,
+) {
   return async (req: Request, res: Response): Promise<Response> => {
     const appt = await svc.transition(req.clinicId!, req.params.id, to, req.auth!.userId, req.body ?? {});
     recordAudit(req, { action: audit, resourceType: "appointment", resourceId: req.params.id, patient: appt.patient });
+    if (after) await after(req.clinicId!, req.auth!.userId, req.params.id);
     return ok(res, appt);
   };
 }
@@ -66,7 +72,8 @@ function transitionHandler(to: AppointmentStatus, audit: string) {
 export const confirm = transitionHandler("confirmed", "appointment.confirm");
 export const checkIn = transitionHandler("checked_in", "appointment.check_in");
 export const start = transitionHandler("in_progress", "appointment.start");
-export const complete = transitionHandler("completed", "appointment.complete");
+// Completion fans out its follow-on effects (consumable deduction, review request).
+export const complete = transitionHandler("completed", "appointment.complete", onAppointmentCompleted);
 export const cancel = transitionHandler("cancelled", "appointment.cancel");
 export const noShow = transitionHandler("no_show", "appointment.no_show");
 
