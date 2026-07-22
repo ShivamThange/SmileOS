@@ -36,6 +36,12 @@ export const queryKeys = {
     detail: (id: string) => ["procedures", "detail", id] as const,
   },
 
+  team: {
+    all: ["team"] as const,
+    users: () => ["team", "users"] as const,
+    attendance: (params: QueryParams = {}) => ["team", "attendance", params] as const,
+  },
+
   operations: {
     all: ["operations"] as const,
     inventory: () => ["operations", "inventory"] as const,
