@@ -5,7 +5,8 @@ import { DataTable, type Column } from "@/components/common/data-table";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { staff, type Staff } from "./team-data";
+import { type Staff } from "./team-data";
+import { useStaff } from "./queries";
 
 /* Team — doctors, staff, rosters and permissions. */
 
@@ -15,11 +16,12 @@ const PERM_TINT: Record<Staff["permission"], string> = {
 
 export function StaffScreen() {
   const { showToast } = useUIStore();
+  const { data: staff = [], isLoading } = useStaff();
   const stats = useMemo(() => ({
     total: staff.length,
     doctors: staff.filter((s) => s.role === "Doctor").length,
     active: staff.filter((s) => s.active).length,
-  }), []);
+  }), [staff]);
 
   const columns: Column<Staff>[] = [
     { key: "name", header: "MEMBER", width: "1.6fr", render: (s) => (
@@ -48,7 +50,7 @@ export function StaffScreen() {
         <StatCard label="Doctors" value={String(stats.doctors)} sub="clinicians" />
         <StatCard label="Active" value={String(stats.active)} deltaTone="up" sub="with access" />
       </div>
-      <DataTable columns={columns} rows={staff} rowKey={(s) => s.id} onRowClick={(s) => showToast(`${s.name} — profile & permissions open`)}
+      <DataTable columns={columns} rows={staff} rowKey={(s) => s.id} loading={isLoading} onRowClick={(s) => showToast(`${s.name} — profile & permissions open`)}
         footer={`${staff.length} members`} empty={{ icon: "team", title: "No team members", body: "Invite doctors and staff to give them access." }} />
     </div>
   );

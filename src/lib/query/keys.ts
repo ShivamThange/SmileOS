@@ -36,6 +36,12 @@ export const queryKeys = {
     detail: (id: string) => ["procedures", "detail", id] as const,
   },
 
+  team: {
+    all: ["team"] as const,
+    users: () => ["team", "users"] as const,
+    attendance: (params: QueryParams = {}) => ["team", "attendance", params] as const,
+  },
+
   operations: {
     all: ["operations"] as const,
     inventory: () => ["operations", "inventory"] as const,
@@ -101,6 +107,11 @@ export const queryKeys = {
   recalls: {
     all: ["recalls"] as const,
     list: (params: QueryParams = {}) => ["recalls", "list", params] as const,
+  },
+
+  reviews: {
+    all: ["reviews"] as const,
+    list: (params: QueryParams = {}) => ["reviews", "list", params] as const,
   },
 
   analytics: {
