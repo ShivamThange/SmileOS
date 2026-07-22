@@ -5,17 +5,8 @@ import { Panel, MicroLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/empty-state";
 import { inr } from "@/lib/format";
-import { usePlansStore } from "./use-plans-store";
-import {
-  PLAN_STATUS_META,
-  allItems,
-  deriveStatus,
-  planNetPaise,
-  planSelectedPaise,
-  planDeferredPaise,
-  type PlanStatus,
-  type TreatmentPlan,
-} from "./plans-data";
+import { PLAN_STATUS_META, type PlanStatus } from "./plans-data";
+import { useTreatmentPlans, type PlanListEntry } from "./queries";
 
 /*
  * The plans worklist.
@@ -39,30 +30,30 @@ const GRID = "1.3fr 1.8fr 0.9fr 1.15fr 1.3fr 1fr";
 
 export function PlansListScreen() {
   const navigate = useNavigate();
-  const plans = usePlansStore((s) => s.plans);
+  const { data: plans = [] } = useTreatmentPlans();
   const [filter, setFilter] = useState<PlanStatus | "all">("all");
 
   const rows = useMemo(
-    () => plans.filter((p) => filter === "all" || deriveStatus(p) === filter),
+    () => plans.filter((p) => filter === "all" || p.status === filter),
     [plans, filter],
   );
 
   const stats = useMemo(() => {
-    const awaiting = plans.filter((p) => deriveStatus(p) === "presented");
-    const awaitingValue = awaiting.reduce((s, p) => s + planNetPaise(p), 0);
+    const awaiting = plans.filter((p) => p.status === "presented");
+    const awaitingValue = awaiting.reduce((s, p) => s + p.netPaise, 0);
     const acceptedValue = plans
-      .filter((p) => ["accepted", "partial"].includes(deriveStatus(p)))
-      .reduce((s, p) => s + planSelectedPaise(p), 0);
-    const deferredValue = plans.reduce((s, p) => s + planDeferredPaise(p), 0);
+      .filter((p) => ["accepted", "partial"].includes(p.status))
+      .reduce((s, p) => s + p.takenPaise, 0);
+    const deferredValue = plans.reduce((s, p) => s + p.deferredPaise, 0);
 
     /*
      * Acceptance by *value*, not by count — a practice that accepts nine ₹2,000
      * fillings and declines one ₹2L rehab has a 90% acceptance rate and a
      * problem.
      */
-    const decided = plans.filter((p) => ["accepted", "partial", "declined"].includes(deriveStatus(p)));
-    const decidedTotal = decided.reduce((s, p) => s + planNetPaise(p), 0);
-    const decidedWon = decided.reduce((s, p) => s + planSelectedPaise(p), 0);
+    const decided = plans.filter((p) => ["accepted", "partial", "declined"].includes(p.status));
+    const decidedTotal = decided.reduce((s, p) => s + p.netPaise, 0);
+    const decidedWon = decided.reduce((s, p) => s + p.takenPaise, 0);
     const rate = decidedTotal ? Math.round((decidedWon / decidedTotal) * 100) : 0;
 
     return { awaiting: awaiting.length, awaitingValue, acceptedValue, deferredValue, rate };
@@ -163,17 +154,14 @@ function PlanRow({
   onOpen,
   onPresent,
 }: {
-  plan: TreatmentPlan;
+  plan: PlanListEntry;
   onOpen: () => void;
   onPresent: () => void;
 }) {
-  const status = deriveStatus(plan);
-  const meta = PLAN_STATUS_META[status];
-  const items = allItems(plan);
-  const deferred = items.filter((i) => i.decision === "deferred").length;
-  const net = planNetPaise(plan);
-  const taken = planSelectedPaise(plan);
-  const e = plan.engagement;
+  const meta = PLAN_STATUS_META[plan.status];
+  const deferred = plan.itemCount - plan.acceptedCount;
+  const net = plan.netPaise;
+  const taken = plan.takenPaise;
 
   return (
     <div
@@ -196,8 +184,7 @@ function PlanRow({
       <div className="min-w-0">
         <div className="text-[12.5px] truncate">{plan.title}</div>
         <div className="text-[11px] text-muted-2">
-          {plan.phases.length} phases · {items.length} items
-          {plan.discountPct ? ` · ${plan.discountPct}% off` : ""}
+          {plan.itemCount} item{plan.itemCount === 1 ? "" : "s"}
         </div>
       </div>
 
@@ -214,28 +201,16 @@ function PlanRow({
         <div className="text-[13px] font-semibold tnum">{inr(taken)}</div>
         {deferred > 0 ? (
           <div className="text-[11px] text-warning tnum">
-            {deferred} of {items.length} deferred · {inr(net - taken)}
+            {deferred} of {plan.itemCount} deferred · {inr(net - taken)}
           </div>
         ) : (
           <div className="text-[11px] text-muted-2 tnum">of {inr(net)}</div>
         )}
       </div>
 
-      {/* What the link told us — the reason to call, or not to. */}
+      {/* Link engagement (opens/dwell) isn't tracked server-side yet. */}
       <div className="min-w-0">
-        {!e.sentOn ? (
-          <span className="text-[11.5px] text-muted-2">Not sent</span>
-        ) : e.opens === 0 ? (
-          <span className="text-[11.5px] text-danger-text">Sent, never opened</span>
-        ) : (
-          <>
-            <div className="text-[11.5px]">
-              Opened <b className="tnum">{e.opens}×</b>
-              {e.forwarded && <span className="text-primary"> · forwarded</span>}
-            </div>
-            <div className="text-[11px] text-muted-2 truncate">last {e.lastOpenedOn}</div>
-          </>
-        )}
+        <span className="text-[11.5px] text-muted-2">{plan.presentedOn ? `Presented ${plan.presentedOn}` : "Not presented"}</span>
       </div>
 
       <div className="flex justify-end gap-1.5" onClick={(ev) => ev.stopPropagation()}>
