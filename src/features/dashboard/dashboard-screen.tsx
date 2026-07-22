@@ -6,13 +6,15 @@ import { inrFromRupees } from "@/lib/format";
 import { clinicConfig } from "@/config/clinic";
 import { collections30 } from "@/lib/mock-data";
 import { chartGreens } from "@/design/status";
+import { useRevenueAtRisk } from "./queries";
 
 const MONTH_TARGET = 900000;
 
-const riskCards = [
-  { value: 482600, label: "Diagnosed, never scheduled", sub: "23 patients with advised care unscheduled — oldest 38 days", cta: "Open worklist", to: "/app/revenue/unscheduled", divider: true },
-  { value: 186000, label: "Overdue to return", sub: "41 patients past their recall date", cta: "See patients", to: "/app/recalls", divider: true },
-  { value: 112450, label: "Unpaid bills", sub: "₹64,200 under 30 days · ₹48,250 older", cta: "Open ageing", to: "/app/revenue/pending-payments", divider: false },
+/** Fallback figures while the live revenue-at-risk panel loads. */
+const riskCardsFallback = [
+  { value: 482600, label: "Diagnosed, never scheduled", sub: "advised care unscheduled", cta: "Open worklist", to: "/app/revenue/unscheduled", divider: true },
+  { value: 186000, label: "Overdue to return", sub: "patients past their recall date", cta: "See patients", to: "/app/recalls", divider: true },
+  { value: 112450, label: "Unpaid bills", sub: "receivables outstanding", cta: "Open ageing", to: "/app/revenue/pending-payments", divider: false },
 ];
 
 const inClinic = [
@@ -47,8 +49,18 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
 
 export function DashboardScreen() {
   const navigate = useNavigate();
+  const { data: risk } = useRevenueAtRisk();
   const monthPct = Math.round((684500 / MONTH_TARGET) * 100);
   const maxBar = Math.max(...collections30);
+
+  // The revenue-at-risk headline, live. Values are rupees for the card renderer.
+  const riskCards = risk
+    ? [
+        { value: Math.round(risk.unscheduled.totalValuePaise / 100), label: "Diagnosed, never scheduled", sub: `${risk.unscheduled.patientCount} patients with advised care unscheduled`, cta: "Open worklist", to: "/app/revenue/unscheduled", divider: true },
+        { value: Math.round((risk.recalls.valuePaise ?? 0) / 100), label: "Overdue to return", sub: `${risk.recalls.overdueCount ?? risk.recalls.count ?? 0} patients past their recall date`, cta: "See patients", to: "/app/recalls", divider: true },
+        { value: Math.round(risk.receivables.totalPaise / 100), label: "Unpaid bills", sub: `${inrFromRupees(Math.round(risk.receivables.under30Paise / 100))} under 30 days · ${inrFromRupees(Math.round(risk.receivables.over30Paise / 100))} older`, cta: "Open ageing", to: "/app/revenue/pending-payments", divider: false },
+      ]
+    : riskCardsFallback;
 
   return (
     <div className="max-w-[1240px] mx-auto flex flex-col gap-4">
