@@ -11,7 +11,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "seed": "tsx src/scripts/seed.ts",
-    "verify:modules": "tsx src/scripts/verify-new-modules.ts"
+    "verify:modules": "tsx src/scripts/verify-new-modules.ts",
+    "verify:logic": "tsx src/scripts/verify-logic.ts"
   },
   "dependencies": {
     "bullmq": "^5.7.0",
