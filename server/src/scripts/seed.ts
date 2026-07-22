@@ -3,7 +3,7 @@ import { env } from "../config/env";
 import { logger } from "../config/logger";
 import {
   ClinicModel, UserModel, OperatoryModel, ProcedureModel, PatientModel, MedicalHistoryModel,
-  AppointmentModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel,
+  AppointmentModel, WaitlistModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel,
   LeadModel, RecallModel, InventoryItemModel, LabCaseModel, SupplierModel, CounterModel,
   InstalmentPlanModel, ConversationModel, MessageModel,
   CampaignModel, ReviewModel, AttendanceModel,
@@ -48,7 +48,7 @@ export async function seedClinic(): Promise<string> {
   const clinicId = clinic._id;
 
   // Idempotent wipe of this clinic's transactional data.
-  const models: mongoose.Model<unknown>[] = [UserModel, OperatoryModel, ProcedureModel, PatientModel, MedicalHistoryModel, AppointmentModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel, InstalmentPlanModel, LeadModel, RecallModel, ConversationModel, MessageModel, InventoryItemModel, LabCaseModel, SupplierModel] as unknown as mongoose.Model<unknown>[];
+  const models: mongoose.Model<unknown>[] = [UserModel, OperatoryModel, ProcedureModel, PatientModel, MedicalHistoryModel, AppointmentModel, WaitlistModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel, InstalmentPlanModel, LeadModel, RecallModel, ConversationModel, MessageModel, InventoryItemModel, LabCaseModel, SupplierModel] as unknown as mongoose.Model<unknown>[];
   await Promise.all(models.map((m) => m.deleteMany({ clinicId })));
   await CounterModel.deleteMany({ clinicId });
   logger.info("Cleared existing demo data");
@@ -195,6 +195,18 @@ export async function seedClinic(): Promise<string> {
   }
 
   await AppointmentModel.insertMany(apptDocs);
+
+  // A handful of patients waiting for an earlier slot — the desk fills freed
+  // gaps from here.
+  const WAITLIST_WANTS = ["Earlier implant review", "Any cancellation this week", "Cleaning — mornings only", "Root canal follow-up", "Braces adjustment", "Crown fitting asap"];
+  await Promise.all([...patients].sort(() => Math.random() - 0.5).slice(0, 6).map((p, i) =>
+    WaitlistModel.create({
+      clinicId, patient: p._id, name: [p.firstName, p.lastName].filter(Boolean).join(" "),
+      desiredTreatment: WAITLIST_WANTS[i % WAITLIST_WANTS.length],
+      timeOfDay: pick(["morning", "afternoon", "any"]),
+      urgency: pick(["high", "moderate", "moderate", "routine"]),
+      status: "waiting", contactAttempts: randInt(0, 2),
+    })));
   logger.info(`Appointments: ${apptDocs.length} (per-patient history + forward book)`);
 
   // ---- Treatment plans across acceptance states ---------------------------
