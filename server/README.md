@@ -81,14 +81,30 @@ activate, permission overrides, schedule/leave, doctor performance);
 **content management** (`/content`, `/public/content` — pages/SEO/blog/FAQs/
 testimonials/gallery/banners, consent-gated clinical gallery); and
 **reviews & campaigns** (`/campaigns`, `/reviews`, `/public/reviews` —
-audience preview before send, private→public review routing). Their core
-business logic has a functional harness: `npm run verify:modules` (needs a
-reachable Mongo binary).
+audience preview before send, private→public review routing);
+**clinical CRUD** (chart / notes / prescriptions); **procedure catalogue**;
+**analytics report library** (`/analytics/reports/:type` + `/analytics/export`
+— revenue, collections, appointments, patients, leads, doctors,
+case-acceptance, treatments, with a shared range/comparison/grouping contract);
+and **compliance / DPDP** (`/audit-logs` read surface, `/compliance/patients/:id`
+export / withdraw-consent / erase).
 
-**Remaining endpoint modules** (schemas exist; routes are the next slice):
-clinical CRUD (chart / notes / prescriptions / consents) and the long tail of
-analytics reports. These follow the exact patterns already established
-(validator → controller → service, tenant-scoped, audited).
+**Background automation (spec Part 6):** scheduled handlers do real work —
+reminder dispatcher (24h/2h bands, deduped), inventory alerts, overdue-instalment
+reminders, recall generation, birthday greetings, owner digest — dispatched by
+job name from the worker. Completing an appointment fans out to consumable
+deduction + a review request. A global NoSQL-operator sanitiser sits in front of
+every API route.
+
+**Tests:** `npm run verify:logic` — money arithmetic, session-window, segment
+safety, CSV export, and the sanitiser, with no infra dependency (runs in CI).
+`npm run verify:modules` — the full module + jobs business logic against an
+in-memory Mongo (needs a reachable Mongo binary).
+
+**Remaining:** clinical consents endpoints, and the deeper analytics reports
+(retention / chair-utilisation). Integration transport (real WhatsApp Cloud /
+SMTP / gateway sends) is stubbed behind the queue and activates when credentials
+are configured.
 
 ## Conventions (spec 8.3)
 
