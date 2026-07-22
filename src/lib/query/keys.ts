@@ -109,6 +109,11 @@ export const queryKeys = {
     list: (params: QueryParams = {}) => ["recalls", "list", params] as const,
   },
 
+  reviews: {
+    all: ["reviews"] as const,
+    list: (params: QueryParams = {}) => ["reviews", "list", params] as const,
+  },
+
   analytics: {
     all: ["analytics"] as const,
     dashboard: (params: QueryParams = {}) => ["analytics", "dashboard", params] as const,

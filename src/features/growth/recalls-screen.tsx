@@ -4,7 +4,8 @@ import { StatCard } from "@/components/common/stat-card";
 import { Panel, MicroLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { recalls, type Recall, type RecallType } from "./growth-data";
+import { type Recall, type RecallType } from "./growth-data";
+import { useRecalls } from "./queries";
 
 /* Recalls — patients due or overdue for care, segmentable, with bulk WhatsApp. */
 
@@ -14,13 +15,14 @@ export function RecallsScreen() {
   const { showToast } = useUIStore();
   const [type, setType] = useState<RecallType | "All">("All");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const { data: recalls = [] } = useRecalls();
 
-  const rows = useMemo(() => recalls.filter((r) => type === "All" || r.type === type), [type]);
+  const rows = useMemo(() => recalls.filter((r) => type === "All" || r.type === type), [type, recalls]);
   const stats = useMemo(() => ({
     due: recalls.length,
     overdue: recalls.filter((r) => r.overdueDays > 0).length,
     critical: recalls.filter((r) => r.overdueDays >= 30).length,
-  }), []);
+  }), [recalls]);
 
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
