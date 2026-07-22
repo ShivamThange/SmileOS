@@ -3,6 +3,7 @@ import { ok } from "./shared/envelope";
 import { authRouter } from "./modules/auth/auth.routes";
 import { clinicRouter } from "./modules/clinic/clinic.routes";
 import { procedureRouter } from "./modules/procedure/procedure.routes";
+import { clinicalRouter } from "./modules/clinical/clinical.routes";
 import { patientRouter } from "./modules/patient/patient.routes";
 import { appointmentRouter } from "./modules/appointment/appointment.routes";
 import { treatmentPlanRouter, planItemRouter, revenueRouter } from "./modules/treatment-plan/treatment-plan.routes";
@@ -24,6 +25,7 @@ apiRouter.get("/", (_req, res) => ok(res, { name: "DentalOS API", version: "v1" 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/clinic", clinicRouter);
 apiRouter.use("/procedures", procedureRouter);
+apiRouter.use("/", clinicalRouter);
 apiRouter.use("/patients", patientRouter);
 apiRouter.use("/appointments", appointmentRouter);
 apiRouter.use("/treatment-plans", treatmentPlanRouter);
