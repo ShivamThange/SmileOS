@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { env, corsOrigins } from "./config/env";
 import { requestId } from "./middleware/request-id";
 import { globalLimiter } from "./middleware/rate-limit";
+import { mongoSanitize } from "./middleware/mongo-sanitize";
 import { errorHandler } from "./middleware/error-handler";
 import { notFound } from "./middleware/not-found";
 import { logger } from "./config/logger";
@@ -50,8 +51,8 @@ export function createApp(): Express {
   app.use("/", healthRouter);
   app.use("/webhooks", webhooksRouter);
 
-  // Everything under the API prefix is rate-limited and versioned.
-  app.use(env.API_PREFIX, globalLimiter, apiRouter);
+  // Everything under the API prefix is rate-limited, sanitised, and versioned.
+  app.use(env.API_PREFIX, globalLimiter, mongoSanitize, apiRouter);
 
   app.use(notFound);
   app.use(errorHandler);
