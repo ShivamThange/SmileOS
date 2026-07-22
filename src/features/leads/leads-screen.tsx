@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { inr } from "@/lib/format";
-import { leads as seed } from "@/lib/mock-data";
 import { leadStages } from "@/design/status";
 import { useUIStore } from "@/hooks/use-ui-store";
+import { useLeads, useUpdateLeadStage } from "./queries";
 import type { Lead } from "@/types";
 import type { LeadStage } from "@/types/enums";
 
 export function LeadsScreen() {
   const { showToast } = useUIStore();
-  const [leads, setLeads] = useState<Lead[]>(seed);
+  const { data } = useLeads();
+  const updateStage = useUpdateLeadStage();
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
+
+  // Local editable copy, synced from the server (initial load + after a move
+  // invalidates and refetches). Optimistic drag edits live in between.
+  useEffect(() => { if (data) setLeads(data); }, [data]);
 
   const openPipeline = leads
     .filter((l) => l.stage !== "won" && l.stage !== "lost")
@@ -18,10 +24,12 @@ export function LeadsScreen() {
 
   const moveTo = (stage: LeadStage) => {
     if (!dragId) return;
+    const id = dragId;
     const label = leadStages.find((s) => s.id === stage)?.label ?? stage;
-    setLeads((ls) => ls.map((l) => (l.id === dragId ? { ...l, stage } : l)));
+    setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, stage } : l)));
     setDragId(null);
     showToast(`Moved to ${label}`);
+    updateStage.mutate({ id, stage }, { onError: () => showToast("Couldn't save the move — reverting") });
   };
 
   return (
