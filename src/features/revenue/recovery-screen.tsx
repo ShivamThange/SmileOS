@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { Panel } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -9,14 +9,15 @@ import { UrgencyBadge } from "@/components/common/status-badge";
 import { MedicalAlertBadge } from "@/components/common/medical-alert-badge";
 import { EmptyState } from "@/components/common/empty-state";
 import { inr, inrFromRupees } from "@/lib/format";
-import { recoveryRows as seedRows, patients } from "@/lib/mock-data";
 import { useUIStore } from "@/hooks/use-ui-store";
 import { useDeskStore } from "@/hooks/use-desk-store";
 import { waLink, telLink } from "@/lib/whatsapp";
 import { SendGuard, SuppressionDot } from "@/components/common/send-guard";
 import { buildQueue, OUTCOMES, DAILY_QUEUE_SIZE, type Outcome, type ScoredRow } from "./recovery-queue";
+import { useUnscheduled, useUnscheduledSummary, useRecoveryOutcome } from "./recovery-queries";
+import type { UnscheduledSummary } from "./recovery-api";
 import { cn } from "@/lib/utils";
-import type { RecoveryRow } from "@/types";
+import type { RecoveryRow, Patient } from "@/types";
 
 /*
  * Recovery — a finite daily queue, not an infinite backlog.
@@ -37,21 +38,27 @@ import type { RecoveryRow } from "@/types";
 
 const GRID = "1.55fr 1.5fr 0.85fr 0.95fr 0.85fr 1.35fr 1fr 150px";
 
-/** Recovered this week — the number the front desk otherwise never gets. */
-const RECOVERED_THIS_WEEK_BASE = 3840000; // ₹38,400 in paise
-
 export function RecoveryScreen() {
   const { showToast, openPatientPreview } = useUIStore();
   const { openBooking } = useDeskStore();
 
+  const { data: worklist } = useUnscheduled();
+  const summaryQ = useUnscheduledSummary();
+  const outcomeMut = useRecoveryOutcome();
+
   const [lens, setLens] = useState<"queue" | "all">("queue");
-  const [rows, setRows] = useState<RecoveryRow[]>(seedRows);
+  const [rows, setRows] = useState<RecoveryRow[]>([]);
   const [worked, setWorked] = useState<Record<string, Outcome>>({});
-  const [recoveredPaise, setRecoveredPaise] = useState(RECOVERED_THIS_WEEK_BASE);
+  const [recoveredPaise, setRecoveredPaise] = useState(0);
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  const queue = useMemo(() => buildQueue(rows, patients, DAILY_QUEUE_SIZE), [rows]);
+  // Editable local copy of the backlog, synced from the server (initial load +
+  // after an outcome invalidates). A local decline hides the row immediately.
+  const patients = worklist?.patients ?? [];
+  useEffect(() => { if (worklist) setRows(worklist.rows); }, [worklist]);
+
+  const queue = useMemo(() => buildQueue(rows, patients, DAILY_QUEUE_SIZE), [rows, patients]);
   const remaining = queue.filter((s) => !worked[s.row.id]);
   const doneCount = queue.length - remaining.length;
   const inReachPaise = remaining.reduce((sum, s) => sum + s.row.valuePaise, 0);
@@ -62,6 +69,7 @@ export function RecoveryScreen() {
 
     if (outcome === "booked") {
       setRecoveredPaise((v) => v + s.row.valuePaise);
+      outcomeMut.mutate({ itemId: s.row.id, kind: "contact", outcome: "booked" });
       showToast(`${s.patient.name} booked — ${inr(s.row.valuePaise)} recovered`);
     } else if (outcome === "not-interested") {
       /*
@@ -71,8 +79,10 @@ export function RecoveryScreen() {
       setRows((rs) =>
         rs.map((r) => (r.id === s.row.id ? { ...r, declined: true, lastSub: "Not now — ask again in 6 months" } : r)),
       );
+      outcomeMut.mutate({ itemId: s.row.id, kind: "decline" });
       showToast(`${s.patient.name} suppressed for six months — not deleted`);
     } else {
+      outcomeMut.mutate({ itemId: s.row.id, kind: "contact", outcome });
       showToast(`Logged: ${OUTCOMES.find((o) => o.id === outcome)?.label} — ${s.patient.name}`);
     }
   };
@@ -197,7 +207,7 @@ export function RecoveryScreen() {
           )}
         </>
       ) : (
-        <EverythingLens rows={rows} onOpenPatient={openPatientPreview} />
+        <EverythingLens rows={rows} patients={patients} summaryData={summaryQ.data} onOpenPatient={openPatientPreview} />
       )}
     </div>
   );
@@ -437,22 +447,28 @@ function LensButton({
 // The full list — for the Friday reconciliation, not the daily work
 // ---------------------------------------------------------------------------
 
-const summary = [
-  { label: "Advised care unscheduled", value: inrFromRupees(482600), sub: "Across 23 patients" },
-  { label: "Recovered · last 30 days", value: inrFromRupees(126400), sub: "9 plans booked" },
-  { label: "Recovery rate", value: "31%", sub: "Of value followed up" },
-  { label: "Queue completion", value: "78%", sub: "Calls made of calls queued" },
-];
-
 function EverythingLens({
   rows,
+  patients,
+  summaryData,
   onOpenPatient,
 }: {
   rows: RecoveryRow[];
+  patients: Patient[];
+  summaryData?: UnscheduledSummary;
   onOpenPatient: (id: string) => void;
 }) {
   const [urg, setUrg] = useState("All");
   const [type, setType] = useState("All");
+
+  // The headline figure is real: the whole unscheduled backlog and how many
+  // patients it spans. The rate/completion tiles remain illustrative.
+  const summary = [
+    { label: "Advised care unscheduled", value: inr(summaryData?.totalValuePaise ?? 0), sub: `Across ${summaryData?.patientCount ?? 0} patients` },
+    { label: "Recoverable now", value: inr(summaryData?.recoverablePaise ?? 0), sub: "Within the recovery window" },
+    { label: "Recovery rate", value: "31%", sub: "Of value followed up" },
+    { label: "Queue completion", value: "78%", sub: "Calls made of calls queued" },
+  ];
 
   const visible = useMemo(
     () =>
