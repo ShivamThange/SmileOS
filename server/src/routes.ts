@@ -10,6 +10,7 @@ import { treatmentPlanRouter, planItemRouter, revenueRouter } from "./modules/tr
 import { invoiceRouter, paymentRouter, expenseRouter } from "./modules/billing/billing.routes";
 import { leadRouter, recallRouter } from "./modules/growth/growth.routes";
 import { analyticsRouter } from "./modules/analytics/analytics.routes";
+import { analyticsReportsRouter } from "./modules/analytics/reports.routes";
 import { publicRouter } from "./modules/public/public.routes";
 import { portalRouter } from "./modules/portal/portal.routes";
 import { inventoryRouter, supplierRouter, purchaseOrderRouter, labCaseRouter } from "./modules/operations/operations.routes";
@@ -42,6 +43,7 @@ apiRouter.use("/expenses", expenseRouter);
 apiRouter.use("/leads", leadRouter);
 apiRouter.use("/recalls", recallRouter);
 apiRouter.use("/analytics", analyticsRouter);
+apiRouter.use("/analytics", analyticsReportsRouter);
 apiRouter.use("/public", publicRouter);
 apiRouter.use("/portal", portalRouter);
 apiRouter.use("/inventory", inventoryRouter);

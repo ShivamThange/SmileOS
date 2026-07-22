@@ -198,6 +198,21 @@ async function main(): Promise<void> {
   const reviewCount = await models.ReviewModel.countDocuments({ clinicId: jClinicId, appointment: appt._id });
   check("review request is not duplicated on re-fire", reviewCount === 1, reviewCount);
 
+  /* ---- Analytics report library ----------------------------------------- */
+  console.log("\n=== analytics reports ===");
+  const reports = await import("../modules/analytics/reports.service");
+  const doctorId = new mongoose.Types.ObjectId();
+  const inv = await models.InvoiceModel.create({ clinicId: jClinicId, patient: evtPatient._id, performingDoctor: doctorId, totalPaise: 500000, status: "paid" });
+  await models.PaymentModel.create({ clinicId: jClinicId, patient: evtPatient._id, invoice: inv._id, amountPaise: 500000, mode: "cash", status: "success", date: new Date() });
+  const range = { from: new Date(Date.now() - 7 * 86_400_000), to: new Date(), groupBy: "day" as const, compare: true };
+  const revenue = await reports.runReport("revenue", jClinicId, range);
+  check("revenue report totals the invoice", revenue.totals.valuePaise === 500000, revenue.totals.valuePaise);
+  check("revenue report carries a comparison window", Boolean(revenue.comparison));
+  const collections = await reports.runReport("collections", jClinicId, range);
+  check("collections report totals the payment", collections.totals.collectedPaise === 500000, collections.totals.collectedPaise);
+  const csv = reports.toCsv(revenue);
+  check("report exports as CSV with a header row", csv.split("\n")[0].includes("period"), csv.split("\n")[0]);
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED"}`);
   await mongoose.disconnect();
   await mem.stop();
