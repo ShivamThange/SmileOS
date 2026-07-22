@@ -6,18 +6,20 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { inventory, inventoryFlags, type InventoryItem } from "./operations-data";
+import { inventoryFlags, type InventoryItem } from "./operations-data";
+import { useInventory } from "./queries";
 
 /* Inventory — stock, reorder levels, expiry and value with alerts. */
 
 export function InventoryScreen() {
   const { showToast } = useUIStore();
+  const { data: inventory = [], isLoading } = useInventory();
   const stats = useMemo(() => {
     const low = inventory.filter((i) => inventoryFlags(i).low).length;
     const nearExpiry = inventory.filter((i) => inventoryFlags(i).nearExpiry).length;
     const value = inventory.reduce((s, i) => s + i.valuePaise, 0);
     return { low, nearExpiry, value };
-  }, []);
+  }, [inventory]);
 
   const columns: Column<InventoryItem>[] = [
     { key: "name", header: "ITEM", width: "1.6fr", render: (i) => (
@@ -46,7 +48,7 @@ export function InventoryScreen() {
         <StatCard label="Near expiry (45d)" value={String(stats.nearExpiry)} delta="use or return" deltaTone="warn" />
         <StatCard label="Stock value" value={inr(stats.value)} sub="at cost" />
       </div>
-      <DataTable columns={columns} rows={inventory} rowKey={(i) => i.id} onRowClick={(i) => showToast(`${i.name} — stock history opens`)}
+      <DataTable columns={columns} rows={inventory} rowKey={(i) => i.id} loading={isLoading} onRowClick={(i) => showToast(`${i.name} — stock history opens`)}
         footer={`${inventory.length} items`} empty={{ icon: "operations", title: "No stock tracked", body: "Add items to monitor levels and expiry." }} />
     </div>
   );
