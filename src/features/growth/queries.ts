@@ -48,14 +48,16 @@ export function useReviews() {
     queryFn: async (): Promise<Review[]> => {
       const { data } = await listReviews();
       return data.map((r) => {
-        const isGoogle = (r.source ?? r.channel ?? "").toLowerCase().includes("google") || r.rating >= 4;
-        const routed: Review["routed"] = r.rating >= 4 ? "google" : r.responseStatus === "responded" ? "recovery" : "pending";
+        const rating = r.internalRating ?? 0;
+        const onGoogle = r.routedToPublic || r.responseStatus === "public";
+        const routed: Review["routed"] =
+          onGoogle ? "google" : r.responseStatus === "recovery" || r.responseStatus === "resolved" ? "recovery" : "pending";
         return {
           id: r._id,
           patient: r.patient ? `${r.patient.firstName ?? ""} ${(r.patient.lastName ?? "").slice(0, 1)}.`.trim() : "Patient",
-          rating: r.rating,
-          channel: isGoogle ? "Google" : "Private",
-          text: r.comment ?? r.text ?? "",
+          rating,
+          channel: onGoogle ? "Google" : "Private",
+          text: r.internalFeedback ?? "",
           when: fmtDate(r.createdAt),
           routed,
         };

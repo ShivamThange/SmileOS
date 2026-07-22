@@ -6,6 +6,7 @@ import {
   AppointmentModel, TreatmentPlanModel, TreatmentPlanItemModel, InvoiceModel, PaymentModel,
   LeadModel, RecallModel, InventoryItemModel, LabCaseModel, SupplierModel, CounterModel,
   InstalmentPlanModel, ConversationModel, MessageModel,
+  CampaignModel, ReviewModel, AttendanceModel,
 } from "../models";
 import { hashPassword } from "../utils/password";
 import {
@@ -373,6 +374,51 @@ export async function seedClinic(): Promise<string> {
 
   await Promise.all(["received", "sent", "in_progress", "trial", "impression"].map((status, i) =>
     LabCaseModel.create({ clinicId, patient: pick(patients)._id, doctor: pick(doctorDocs)._id, lab: pick(suppliers)._id, labName: "Precision Dental Lab", workType: pick(["Zirconia crown", "PFM bridge", "Night guard", "Veneers"]), status, sentDate: daysAgo(randInt(3, 15)), expectedReturn: daysFromNow(randInt(-3, 8)), costPaise: R(randInt(4000, 20000)) })));
+
+  // Reviews — mostly happy (routed public), a few caught privately for recovery.
+  const REVIEW_FEEDBACK = [
+    "Painless implant, spotless clinic. Dr. Meher explained everything.",
+    "They showed me the sterilised pack before opening. Trust earned.",
+    "Quick, gentle and on time. Highly recommend.",
+    "Waited 40 minutes past my slot. Treatment was fine but the delay wasn't.",
+    "Good care, though parking was tricky.",
+    "Best dental experience in Aundh. The EMI option helped a lot.",
+  ];
+  await Promise.all(Array.from({ length: 18 }, () => {
+    const rating = chance(0.72) ? pick([5, 5, 4]) : pick([2, 3]);
+    const routedToPublic = rating >= 4;
+    return ReviewModel.create({
+      clinicId, patient: pick(patients)._id, internalRating: rating,
+      internalFeedback: pick(REVIEW_FEEDBACK), routedToPublic,
+      publicPlatform: routedToPublic ? "google" : undefined,
+      responseStatus: routedToPublic ? "public" : pick(["recovery", "pending"]),
+      requestSentAt: daysAgo(randInt(1, 40)), requestChannel: "whatsapp",
+    });
+  }));
+
+  // Campaigns — a couple live, a couple done, with rough funnel stats.
+  await Promise.all([
+    { name: "Hygiene recall — July", type: "recall", status: "active", sent: 84, booked: 22 },
+    { name: "Lapsed patient re-activation", type: "reactivation", status: "active", sent: 156, booked: 18 },
+    { name: "Diwali whitening offer", type: "promotional", status: "done", sent: 240, booked: 41 },
+    { name: "Post-treatment review request", type: "review_request", status: "done", sent: 320, booked: 0 },
+  ].map((c) => CampaignModel.create({
+    clinicId, name: c.name, type: c.type, channel: "whatsapp", status: c.status,
+    schedule: { mode: "immediate" },
+    stats: { sent: c.sent, delivered: Math.round(c.sent * 0.97), read: Math.round(c.sent * 0.8), replied: Math.round(c.sent * 0.3), booked: c.booked, revenuePaise: R(c.booked * randInt(3000, 12000)) },
+  })));
+
+  // Attendance — today's roster: doctors and the owner clocked in this morning.
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const staffForAttendance = [owner, ...doctorDocs];
+  await Promise.all(staffForAttendance.map((u, i) => {
+    const onLeave = i > 0 && chance(0.15);
+    const checkIn = new Date(today); checkIn.setHours(9, randInt(0, 20), 0, 0);
+    return AttendanceModel.create({
+      clinicId, staff: u._id, date: today,
+      ...(onLeave ? { status: "leave" } : { status: "in", checkIn, hours: 4 }),
+    });
+  }));
 
   logger.info("Seed complete");
   return String(clinicId);
