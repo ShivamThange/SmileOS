@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { ok, created } from "../../shared/envelope";
-import { paginate } from "../../shared/list";
+import { parsePageParams, buildPagination } from "../../utils/pagination";
 import { TreatmentPlanModel, TreatmentPlanItemModel } from "../../models/treatment-plan.model";
 import { recordAudit } from "../../services/audit.service";
 import { errors } from "../../shared/errors";
@@ -9,12 +9,55 @@ import * as revenue from "./revenue.service";
 
 /* Treatment plan + revenue controller (spec 4.7). */
 
+const ACCEPTED_STATUSES = ["accepted", "scheduled", "in_progress", "completed"];
+
 export async function list(req: Request, res: Response): Promise<Response> {
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = { clinicId: req.clinicId };
   if (req.query.status) filter.status = req.query.status;
   if (req.query.doctor) filter.doctor = req.query.doctor;
   if (req.query.patient) filter.patient = req.query.patient;
-  return paginate(req, res, TreatmentPlanModel, filter, { defaultSort: "planDate", populate: ["patient", "doctor"] });
+
+  const { page, limit, skip, sort } = parsePageParams(req, { defaultSort: "planDate" });
+  const [plans, total] = await Promise.all([
+    TreatmentPlanModel.find(filter).sort(sort).skip(skip).limit(limit).populate("patient doctor").lean(),
+    TreatmentPlanModel.countDocuments(filter),
+  ]);
+
+  // Batch the item totals per plan so the list can show accepted/deferred value
+  // and item counts without an N+1 (item-level status is the whole design).
+  const ids = plans.map((p) => p._id);
+  const agg = ids.length
+    ? await TreatmentPlanItemModel.aggregate([
+        { $match: { plan: { $in: ids } } },
+        {
+          $group: {
+            _id: "$plan",
+            grossPaise: { $sum: "$lineTotalPaise" },
+            acceptedPaise: { $sum: { $cond: [{ $in: ["$status", ACCEPTED_STATUSES] }, "$lineTotalPaise", 0] } },
+            itemCount: { $sum: 1 },
+            acceptedCount: { $sum: { $cond: [{ $in: ["$status", ACCEPTED_STATUSES] }, 1, 0] } },
+          },
+        },
+      ])
+    : [];
+  const totalsById = new Map(agg.map((a) => [String(a._id), a]));
+
+  const data = plans.map((p) => {
+    const t = totalsById.get(String(p._id));
+    const grossPaise = t?.grossPaise ?? 0;
+    const acceptedPaise = t?.acceptedPaise ?? 0;
+    return {
+      ...p,
+      totals: {
+        grossPaise,
+        acceptedPaise,
+        deferredPaise: grossPaise - acceptedPaise,
+        itemCount: t?.itemCount ?? 0,
+        acceptedCount: t?.acceptedCount ?? 0,
+      },
+    };
+  });
+  return ok(res, data, { pagination: buildPagination(page, limit, total) });
 }
 
 export async function create(req: Request, res: Response): Promise<Response> {
