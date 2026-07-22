@@ -158,6 +158,41 @@ export async function seedClinic(): Promise<string> {
       });
     }
   }
+
+  // A populated *today* so the appointment book demos as a real working day —
+  // a spread of slots across chairs, already advanced through the morning
+  // (completed → in the chair → checked in) and still to come this afternoon.
+  const todayBase = new Date();
+  if (todayBase.getDay() === 0) todayBase.setDate(todayBase.getDate() + 1); // Sunday → Monday
+  const nowHour = new Date().getHours();
+  const todayPatients = [...patients].sort(() => Math.random() - 0.5).slice(0, Math.min(patients.length, 14));
+  for (let i = 0; i < todayPatients.length; i++) {
+    const patient = todayPatients[i];
+    const hour = 9 + (i % 9); // 9am–5pm spread
+    const minute = chance(0.5) ? 0 : 30;
+    const start = new Date(todayBase);
+    start.setHours(hour, minute, 0, 0);
+    const proc = pick(procDocs);
+    const durationMinutes = pick([30, 30, 45, 60]);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+    // Status follows the clock: past slots done/no-show, the current slot in the
+    // chair, the immediate next checked in, the rest scheduled or confirmed.
+    let status: string;
+    if (hour < nowHour - 1) status = chance(0.15) ? "no_show" : "completed";
+    else if (hour <= nowHour) status = "in_progress";
+    else if (hour === nowHour + 1) status = "checked_in";
+    else status = chance(0.5) ? "confirmed" : "scheduled";
+    const chair = chairs[i % chairs.length];
+    apptDocs.push({
+      clinicId, patient: patient._id, doctor: pick(doctorDocs)._id, operatory: chair._id, operatoryLabel: chair.name,
+      start, end, durationMinutes, type: "treatment", procedures: [proc._id], chiefComplaint: proc.name,
+      status, source: pick(["phone", "online", "portal", "recall_campaign"]),
+      ...(status === "completed" ? { completedAt: end } : {}),
+      ...(status === "no_show" ? { noShow: true } : {}),
+      createdBy: owner._id,
+    });
+  }
+
   await AppointmentModel.insertMany(apptDocs);
   logger.info(`Appointments: ${apptDocs.length} (per-patient history + forward book)`);
 
