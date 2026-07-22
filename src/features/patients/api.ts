@@ -60,10 +60,15 @@ export interface CreatePatientInput {
 /** The full patient record (POST /patients response, GET /patients/:id). */
 export interface PatientRecord extends PatientListRow {
   email?: string;
-  address?: { line1?: string; locality?: string; city?: string; state?: string; pincode?: string };
+  altPhone?: string;
+  bloodGroup?: string;
+  occupation?: string;
+  address?: { line1?: string; line2?: string; locality?: string; city?: string; state?: string; pincode?: string };
+  emergencyContact?: { name?: string; relationship?: string; phone?: string };
   referralSource?: string;
   notes?: string;
   alerts?: string[];
+  createdAt?: string;
 }
 
 /** POST /patients — creates a record and auto-assigns the patient number. */
@@ -82,10 +87,12 @@ export interface PatientSummary {
   id: string;
   name: string;
   patientNumber: string;
+  phone: string;
   alerts: string[];
   balancePaise: number;
-  lastVisit?: string;
-  nextVisit?: string | null;
+  lastVisit?: string | null;
+  nextVisit?: { id: string; start: string; proc?: string } | null;
+  nextRecallDate?: string | null;
 }
 export function getPatientSummary(id: string): Promise<PatientSummary> {
   return api.get<PatientSummary>(`/patients/${id}/summary`);

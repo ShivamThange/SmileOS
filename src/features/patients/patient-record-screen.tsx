@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Panel } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { MoneyText } from "@/components/common/money-text";
 import { PlaceholderScreen } from "@/components/common/placeholder-screen";
-import { inr } from "@/lib/format";
+import { EmptyState } from "@/components/common/empty-state";
+import { inr, fmtDate } from "@/lib/format";
 import { initials } from "@/lib/utils";
-import { patients } from "@/lib/mock-data";
+import { isApiError } from "@/lib/api";
 import { useUIStore } from "@/hooks/use-ui-store";
+import { useDeskStore } from "@/hooks/use-desk-store";
+import { usePatient, usePatientSummary } from "./queries";
+import type { PatientRecord, PatientSummary } from "./api";
 import {
   Odontogram,
   ODONTOGRAM_LEGEND,
@@ -24,23 +28,56 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "clinical", label: "Clinical" },
   { id: "gum", label: "Gum health" },
-  { id: "plans", label: "Treatment plans", badge: "2" },
+  { id: "plans", label: "Treatment plans" },
   { id: "billing", label: "Billing" },
-  { id: "documents", label: "Documents", badge: "6" },
+  { id: "documents", label: "Documents" },
   { id: "messages", label: "Messages" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
+/** Compact "52 M" from whatever age/sex the record carries. */
+function ageSex(p: PatientRecord): string {
+  let age: number | undefined = p.ageFallback;
+  if (p.dob) {
+    const d = new Date(p.dob);
+    if (!Number.isNaN(d.getTime())) age = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
+  }
+  const sex = p.gender ? p.gender[0].toUpperCase() : "";
+  return [age != null ? String(age) : "", sex].filter(Boolean).join(" ");
+}
+
 export function PatientRecordScreen() {
   const { id } = useParams();
-  const patient = patients.find((p) => p.id === id) ?? patients[0];
-  const [tab, setTab] = useState<TabId>("clinical");
+  const [tab, setTab] = useState<TabId>("overview");
   const { showToast } = useUIStore();
+  const { openBooking } = useDeskStore();
+  const navigate = useNavigate();
 
-  const alerts = patient.alert
-    ? patient.alert.split("·").map((s) => s.trim()).filter(Boolean)
-    : [];
+  // Summary loads first and independently of the full record so the medical
+  // alert banner and balance can paint the instant they arrive (spec T2.2).
+  const summaryQ = usePatientSummary(id);
+  const recordQ = usePatient(id);
+  const record = recordQ.data;
+  const summary = summaryQ.data;
+
+  if (recordQ.isError) {
+    const notFound = isApiError(recordQ.error) && recordQ.error.code === "NOT_FOUND";
+    return (
+      <div className="max-w-[680px] mx-auto pt-10">
+        <EmptyState
+          icon="patients"
+          title={notFound ? "Patient not found" : "Couldn't load this patient"}
+          body={notFound ? "This record may have been merged or removed." : "Something went wrong fetching the record. Please try again."}
+          cta="Back to patients"
+          onCta={() => navigate("/app/patients")}
+        />
+      </div>
+    );
+  }
+
+  const name = record?.name ?? summary?.name ?? "Patient";
+  const alerts = summary?.alerts ?? [];
 
   return (
     <div className="-mx-6 -mt-5 min-h-full flex flex-col">
@@ -50,7 +87,7 @@ export function PatientRecordScreen() {
           <Icon name="chevronLeft" size={13} strokeWidth={1.5} /> Patients
         </Link>
         <span className="text-border-strong">/</span>
-        <span className="text-ink font-semibold">{patient.name}</span>
+        <span className="text-ink font-semibold">{name}</span>
       </div>
 
       {/* Sticky patient header bar */}
@@ -58,35 +95,35 @@ export function PatientRecordScreen() {
         <div className="max-w-[1360px] mx-auto px-5 pt-3.5 flex flex-col gap-3">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 flex-none rounded-lg bg-primary-tint text-primary grid place-items-center text-[19px] font-bold border border-primary-tint-border">
-              {initials(patient.name)}
+              {initials(name)}
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
               <div className="flex items-baseline gap-2.5 flex-wrap">
-                <h1 className="m-0 text-[19px] font-semibold tracking-[-0.01em]">{patient.name}</h1>
-                <span className="text-xs text-muted-2 font-mono">{patient.pno}</span>
-                <span className="text-[12.5px] text-muted">{patient.agesex}</span>
+                <h1 className="m-0 text-[19px] font-semibold tracking-[-0.01em]">{name}</h1>
+                <span className="text-xs text-muted-2 font-mono">{record?.patientNumber ?? summary?.patientNumber ?? ""}</span>
+                {record && <span className="text-[12.5px] text-muted">{ageSex(record)}</span>}
               </div>
               <div className="flex items-center gap-3.5 text-[12.5px] text-muted flex-wrap">
                 <span className="flex items-center gap-1.5">
-                  <Icon name="patients" size={12} className="text-muted-2" /> {patient.phone}
+                  <Icon name="patients" size={12} className="text-muted-2" /> {record?.phone ?? summary?.phone ?? "—"}
                 </span>
-                <span>Last visit: <b className="text-ink font-semibold">{patient.lastVisit}</b></span>
-                <span>Next: <b className="text-ink font-semibold">{patient.nextVisit}</b></span>
+                <span>Last visit: <b className="text-ink font-semibold">{summary?.lastVisit ? fmtDate(summary.lastVisit) : "—"}</b></span>
+                <span>Next: <b className="text-ink font-semibold">{summary?.nextVisit ? fmtDate(summary.nextVisit.start) : "None booked"}</b></span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
               <div className="text-[10.5px] font-bold tracking-[0.06em] text-muted-2">OUTSTANDING</div>
               <div
                 className="text-xl font-bold tnum"
-                style={{ color: patient.balancePaise ? "var(--danger)" : "var(--primary)" }}
+                style={{ color: summary?.balancePaise ? "var(--danger)" : "var(--primary)" }}
               >
-                {patient.balancePaise ? <MoneyText paise={patient.balancePaise} /> : "Nil"}
+                {summaryQ.isLoading ? <span className="text-muted-2 text-sm font-medium">…</span> : summary?.balancePaise ? <MoneyText paise={summary.balancePaise} /> : "Nil"}
               </div>
             </div>
             <div className="flex gap-2 self-center">
-              <button onClick={() => showToast(`Booking started for ${patient.name}`)} className="text-[12.5px] font-semibold px-3.5 py-2 rounded-md bg-primary text-on-primary hover:bg-primary-hover">Book</button>
+              <button onClick={() => openBooking({ patientId: id, phone: record?.phone })} className="text-[12.5px] font-semibold px-3.5 py-2 rounded-md bg-primary text-on-primary hover:bg-primary-hover">Book</button>
               <button onClick={() => showToast("New invoice — form opens")} className="text-[12.5px] font-semibold px-3.5 py-2 rounded-md border border-border bg-surface hover:bg-bg">Bill</button>
-              <button onClick={() => showToast(`Message thread opened — ${patient.name}`)} className="text-[12.5px] font-semibold px-3.5 py-2 rounded-md border border-border bg-surface hover:bg-bg">Message</button>
+              <button onClick={() => showToast(`Message thread opened — ${name}`)} className="text-[12.5px] font-semibold px-3.5 py-2 rounded-md border border-border bg-surface hover:bg-bg">Message</button>
             </div>
           </div>
 
@@ -119,11 +156,6 @@ export function PatientRecordScreen() {
                   }}
                 >
                   {t.label}
-                  {"badge" in t && t.badge && (
-                    <span className="ml-1.5 text-[10px] font-bold bg-primary-tint text-primary rounded-lg px-1.5 py-px font-mono">
-                      {t.badge}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -133,7 +165,7 @@ export function PatientRecordScreen() {
 
       {/* Body */}
       <div className="flex-1 max-w-[1360px] w-full mx-auto p-5 box-border">
-        {tab === "overview" && <OverviewTab patient={patient} />}
+        {tab === "overview" && <OverviewTab record={record} summary={summary} loading={recordQ.isLoading} />}
         {tab === "clinical" && <ClinicalTab />}
         {tab !== "overview" && tab !== "clinical" && <OtherTab tab={tab} />}
       </div>
@@ -141,23 +173,33 @@ export function PatientRecordScreen() {
   );
 }
 
-function OverviewTab({ patient }: { patient: (typeof patients)[number] }) {
+function OverviewTab({ record, summary, loading }: { record?: PatientRecord; summary?: PatientSummary; loading: boolean }) {
+  if (loading || !record) {
+    return <div className="text-[12.5px] text-muted-2 py-10 text-center">Loading the record…</div>;
+  }
+
+  const addr = record.address;
+  const addressLine = [addr?.line1, addr?.locality, addr?.city].filter(Boolean).join(", ");
+  const since = record.createdAt ? new Date(record.createdAt).getFullYear() : undefined;
+
   const glance = [
-    { value: inr(patient.ltvPaise), label: "Lifetime value" },
-    { value: "23", label: "Visits" },
-    { value: patient.balancePaise ? inr(patient.balancePaise) : "Nil", label: "Outstanding" },
-    { value: patient.lastVisit.split(" ").slice(0, 2).join(" "), label: "Last seen" },
-    { value: "Overdue", label: "Recall status" },
-    { value: "8 yrs", label: "Patient since" },
+    { value: summary?.balancePaise ? inr(summary.balancePaise) : "Nil", label: "Outstanding" },
+    { value: summary?.lastVisit ? fmtDate(summary.lastVisit) : "—", label: "Last seen" },
+    { value: summary?.nextVisit ? fmtDate(summary.nextVisit.start) : "None", label: "Next visit" },
+    { value: summary?.nextRecallDate ? fmtDate(summary.nextRecallDate) : "—", label: "Recall due" },
+    { value: record.status ? record.status[0].toUpperCase() + record.status.slice(1) : "Active", label: "Status" },
+    { value: since ? String(since) : "—", label: "Patient since" },
   ];
   const contact = [
-    { label: "Phone", value: patient.phone },
-    { label: "Email", value: "r.iyer@gmail.com" },
-    { label: "Address", value: "Baner, Pune" },
-    { label: "Blood group", value: "B+" },
-    { label: "Emergency", value: "Lata Iyer (wife)" },
-    { label: "Referred by", value: "Dr. Kulkarni" },
-  ];
+    { label: "Phone", value: record.phone },
+    { label: "Alt phone", value: record.altPhone },
+    { label: "Email", value: record.email },
+    { label: "Address", value: addressLine },
+    { label: "Blood group", value: record.bloodGroup },
+    { label: "Occupation", value: record.occupation },
+    { label: "Emergency", value: record.emergencyContact?.name ? `${record.emergencyContact.name}${record.emergencyContact.relationship ? ` (${record.emergencyContact.relationship})` : ""}` : undefined },
+    { label: "Referred by", value: record.referralSource },
+  ].filter((c) => c.value);
 
   return (
     <div className="grid grid-cols-[300px_1fr] gap-[18px] items-start animate-dc-fade max-lg:grid-cols-1">
@@ -190,19 +232,14 @@ function OverviewTab({ patient }: { patient: (typeof patients)[number] }) {
           <div className="text-[13px] font-semibold">Timeline</div>
           <div className="text-[11.5px] text-muted-2">Every visit, treatment, payment and message</div>
         </div>
-        <div className="flex flex-col">
-          {patient.timeline.map((t, i) => (
-            <div key={i} className="grid grid-cols-[70px_20px_1fr] gap-2">
-              <div className="text-[11px] text-muted-2 font-mono text-right pt-0.5">{t.date}</div>
-              <div className="flex flex-col items-center">
-                <div className="w-[9px] h-[9px] rounded-full bg-primary border-2 border-surface mt-[3px]" style={{ boxShadow: "0 0 0 1.5px var(--primary)" }} />
-                {i < patient.timeline.length - 1 && <div className="flex-1 w-[1.5px] bg-track" />}
-              </div>
-              <div className="pb-4">
-                <div className="text-[12.5px] font-semibold">{t.text}</div>
-              </div>
-            </div>
-          ))}
+        {record.notes ? (
+          <div className="text-[12.5px] text-muted leading-relaxed border border-border-faint rounded-lg px-3.5 py-3 mb-3">
+            <span className="text-muted-2 text-[11px] font-bold tracking-[0.05em] block mb-1">INTAKE NOTE</span>
+            {record.notes}
+          </div>
+        ) : null}
+        <div className="text-[12.5px] text-muted-2 py-6 text-center border border-dashed border-border rounded-lg">
+          A merged event timeline (visits, treatments, payments, messages) lands with the patient-events endpoint.
         </div>
       </Panel>
     </div>
