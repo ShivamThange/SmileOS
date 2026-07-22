@@ -36,6 +36,14 @@ export const queryKeys = {
     detail: (id: string) => ["procedures", "detail", id] as const,
   },
 
+  clinical: {
+    all: ["clinical"] as const,
+    chart: (patientId: string) => ["clinical", "chart", patientId] as const,
+    chartHistory: (patientId: string) => ["clinical", "chart", patientId, "history"] as const,
+    notes: (patientId: string) => ["clinical", "notes", patientId] as const,
+    prescriptions: (patientId: string) => ["clinical", "prescriptions", patientId] as const,
+  },
+
   patients: {
     all: ["patients"] as const,
     lists: () => ["patients", "list"] as const,
