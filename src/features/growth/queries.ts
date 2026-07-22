@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query";
 import { fmtDate } from "@/lib/format";
 import type { RecallType as ApiRecallType } from "@/shared/enums";
-import { listRecalls, listReviews } from "./api";
-import type { Recall, RecallType, Review } from "./growth-data";
+import { listRecalls, listReviews, listCampaigns } from "./api";
+import type { Recall, RecallType, Review, Campaign, CampaignStatus } from "./growth-data";
 
 /*
  * Growth hooks (T2.6 / T3.4). Recalls and reviews mapped from their backends
@@ -37,6 +37,34 @@ export function useRecalls() {
           lastVisit: r.patient?.lastVisit ? fmtDate(r.patient.lastVisit) : "—",
         };
       });
+    },
+    staleTime: 60_000,
+  });
+}
+
+const CAMPAIGN_KIND: Record<string, Campaign["kind"]> = {
+  recall: "Recall", reactivation: "Reactivation", recovery: "Recovery",
+  promotional: "Promotional", review_request: "Promotional", birthday: "Promotional", festival: "Promotional",
+};
+function campaignStatus(s: string): CampaignStatus {
+  return s === "active" ? "active" : s === "scheduled" ? "scheduled" : "done"; // draft/done/cancelled → done
+}
+
+export function useCampaigns() {
+  return useQuery({
+    queryKey: ["campaigns", "list"] as const,
+    queryFn: async (): Promise<Campaign[]> => {
+      const { data } = await listCampaigns();
+      return data.map((c) => ({
+        id: c._id,
+        name: c.name,
+        kind: CAMPAIGN_KIND[c.type] ?? "Promotional",
+        status: campaignStatus(c.status),
+        sent: c.stats?.sent ?? 0,
+        replied: c.stats?.replied ?? 0,
+        booked: c.stats?.booked ?? 0,
+        revenuePaise: c.stats?.revenuePaise ?? 0,
+      }));
     },
     staleTime: 60_000,
   });

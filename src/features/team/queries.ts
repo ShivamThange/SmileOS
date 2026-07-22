@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query";
 import type { UserRole } from "@/shared/enums";
-import { listUsers, type ApiUser } from "./api";
-import type { Staff, StaffRole } from "./team-data";
+import { listUsers, listAttendance, type ApiUser } from "./api";
+import type { Staff, StaffRole, Attendance } from "./team-data";
 
 /*
  * Team hooks (T3.1). The users backend speaks RBAC roles; the roster screen
@@ -49,5 +49,26 @@ export function useStaff() {
       return data.map(toStaff);
     },
     staleTime: 60_000,
+  });
+}
+
+const fmtClock = (iso?: string) => (iso ? new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—");
+
+export function useAttendance() {
+  return useQuery({
+    queryKey: queryKeys.team.attendance(),
+    queryFn: async (): Promise<Attendance[]> => {
+      const { data } = await listAttendance();
+      return data.map((a) => ({
+        id: a._id,
+        name: a.staff?.name ?? "—",
+        role: a.staff?.role ? ROLE_DISPLAY[a.staff.role] ?? "Assistant" : "Assistant",
+        inTime: fmtClock(a.checkIn),
+        outTime: fmtClock(a.checkOut),
+        hours: a.hours != null ? `${Math.floor(a.hours)}h ${Math.round((a.hours % 1) * 60)}m` : "—",
+        state: a.status,
+      }));
+    },
+    staleTime: 30_000,
   });
 }
