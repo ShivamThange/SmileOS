@@ -52,6 +52,7 @@ import { StaffScreen } from "@/features/team/staff-screen";
 import { AttendanceScreen } from "@/features/team/attendance-screen";
 import { AnalyticsScreen } from "@/features/insight/analytics-screen";
 import { LeakReportScreen } from "@/features/insight/leak-report-screen";
+import { ReportsScreen } from "@/features/insight/reports-screen";
 import { ClinicalQueueScreen } from "@/features/clinical/clinical-queue-screen";
 import { ChartingScreen } from "@/features/clinical/charting-screen";
 import { PrescriptionsScreen } from "@/features/clinical/prescriptions-screen";
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
        */
       { path: "insight", element: <AnalyticsScreen /> },
       { path: "insight/leak", element: <LeakReportScreen /> },
+      { path: "insight/reports", element: <ReportsScreen /> },
       { path: "insight/dashboard", element: <DashboardScreen /> },
       // Kept so older links and bookmarks still land somewhere sensible.
       { path: "analytics", element: <Navigate to="/app/insight" replace /> },
