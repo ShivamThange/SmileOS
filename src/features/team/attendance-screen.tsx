@@ -5,18 +5,20 @@ import { DataTable, type Column } from "@/components/common/data-table";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { attendance, ATTENDANCE_META, type Attendance } from "./team-data";
+import { ATTENDANCE_META, type Attendance } from "./team-data";
+import { useAttendance } from "./queries";
 import { TODAY_LABEL } from "@/config/clinic";
 
 /* Attendance — today's check-in / check-out log and hours. */
 
 export function AttendanceScreen() {
   const { showToast } = useUIStore();
+  const { data: attendance = [], isLoading } = useAttendance();
   const stats = useMemo(() => ({
     present: attendance.filter((a) => a.state === "in").length,
     left: attendance.filter((a) => a.state === "out").length,
     off: attendance.filter((a) => a.state === "leave" || a.state === "absent").length,
-  }), []);
+  }), [attendance]);
 
   const columns: Column<Attendance>[] = [
     { key: "name", header: "MEMBER", width: "1.6fr", render: (a) => (
@@ -42,7 +44,7 @@ export function AttendanceScreen() {
         <StatCard label="Left for the day" value={String(stats.left)} sub="checked out" />
         <StatCard label="Off / leave" value={String(stats.off)} sub="not working today" />
       </div>
-      <DataTable columns={columns} rows={attendance} rowKey={(a) => a.id} onRowClick={(a) => showToast(`${a.name} — attendance history opens`)}
+      <DataTable columns={columns} rows={attendance} rowKey={(a) => a.id} loading={isLoading} onRowClick={(a) => showToast(`${a.name} — attendance history opens`)}
         footer={`${attendance.length} logged today`} empty={{ icon: "team", title: "No attendance yet", body: "Check-ins appear here through the day." }} />
     </div>
   );

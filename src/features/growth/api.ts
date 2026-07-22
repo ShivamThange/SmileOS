@@ -31,3 +31,14 @@ export interface ApiReview {
 export function listReviews(): Promise<ApiResult<ApiReview[]>> {
   return api.getPage<ApiReview[]>("/reviews", { query: { limit: 100 } });
 }
+
+export interface ApiCampaign {
+  _id: string;
+  name: string;
+  type: string;
+  status: string;
+  stats?: { sent?: number; replied?: number; booked?: number; revenuePaise?: number };
+}
+export function listCampaigns(): Promise<ApiResult<ApiCampaign[]>> {
+  return api.getPage<ApiCampaign[]>("/campaigns", { query: { limit: 100 } });
+}

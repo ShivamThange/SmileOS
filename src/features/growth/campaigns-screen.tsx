@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { campaigns, type Campaign, type CampaignStatus } from "./growth-data";
+import { type Campaign, type CampaignStatus } from "./growth-data";
+import { useCampaigns } from "./queries";
 
 /* Campaigns — recall/reactivation/recovery sends with attributed revenue. */
 
@@ -18,12 +19,13 @@ const STATUS_META: Record<CampaignStatus, { label: string; bg: string; color: st
 
 export function CampaignsScreen() {
   const { showToast } = useUIStore();
+  const { data: campaigns = [] } = useCampaigns();
   const stats = useMemo(() => {
     const revenue = campaigns.reduce((s, c) => s + c.revenuePaise, 0);
     const booked = campaigns.reduce((s, c) => s + c.booked, 0);
     const sent = campaigns.reduce((s, c) => s + c.sent, 0);
     return { revenue, booked, sent, active: campaigns.filter((c) => c.status === "active").length };
-  }, []);
+  }, [campaigns]);
 
   const columns: Column<Campaign>[] = [
     { key: "name", header: "CAMPAIGN", width: "1.6fr", render: (c) => (
