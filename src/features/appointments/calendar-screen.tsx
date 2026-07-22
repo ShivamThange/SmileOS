@@ -10,8 +10,11 @@ import { useUIStore } from "@/hooks/use-ui-store";
 import { useDeskStore } from "@/hooks/use-desk-store";
 import { useClinicNow } from "@/hooks/use-clinic-now";
 import { appointmentStatusStyle, flagLabel } from "@/design/status";
-import { appointments as seed, waitlist, chairSubs, doctorSubs, patients } from "@/lib/mock-data";
+import { waitlist, chairSubs, doctorSubs, patients } from "@/lib/mock-data";
 import { inferFeePaise, formatDuration } from "@/config/procedures";
+import { isApiError } from "@/lib/api";
+import { useCalendar, useAppointmentTransition, useRescheduleAppointment } from "./queries";
+import type { ApiAppointment, CalendarResource } from "./api";
 import type { Appointment } from "@/types";
 import type { AppointmentStatus } from "@/types/enums";
 
@@ -70,12 +73,56 @@ type Drag =
 
 // ---------------------------------------------------------------------------
 
+/** Start / end of the clinic's current day, the frame the grid renders. */
+function dayBounds(base: Date): { start: Date; end: Date } {
+  const start = new Date(base); start.setHours(0, 0, 0, 0);
+  const end = new Date(base); end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+/** A Date's wall-clock time as a decimal hour (9:30 → 9.5). */
+function hourOf(iso: string): number {
+  const d = new Date(iso);
+  return d.getHours() + d.getMinutes() / 60;
+}
+/** A decimal hour on a given day back to an ISO instant (for the server). */
+function isoAt(day: Date, hour: number): string {
+  const d = new Date(day);
+  d.setHours(Math.floor(hour), Math.round((hour - Math.floor(hour)) * 60), 0, 0);
+  return d.toISOString();
+}
+/** Map a server appointment into the calendar's decimal-hour display model. */
+function mapAppt(a: ApiAppointment): Appointment {
+  return {
+    id: a.id,
+    chair: a.operatoryLabel ?? "Chair 1",
+    doctor: a.doctorName,
+    name: a.patientName,
+    agesex: "",
+    proc: a.chiefComplaint ?? a.type,
+    start: hourOf(a.start),
+    dur: Math.max(MIN_DUR, (new Date(a.end).getTime() - new Date(a.start).getTime()) / 3_600_000),
+    status: a.status,
+    flags: [],
+  };
+}
+
 function snap(t: number): number {
   return Math.round(t / SNAP) * SNAP;
 }
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
+
+/** Which server verb advances an appointment into a target status. Targets with
+ *  no direct verb (rebook, etc.) are handled as local prompts. */
+const TRANSITION_VERB: Partial<Record<AppointmentStatus, "confirm" | "check-in" | "start" | "complete" | "cancel" | "no-show">> = {
+  confirmed: "confirm",
+  checked_in: "check-in",
+  in_progress: "start",
+  completed: "complete",
+  cancelled: "cancel",
+  no_show: "no-show",
+};
 
 /** Status-transition action lists per current status. */
 function actionsFor(a: Appointment): { label: string; primary: boolean; next?: AppointmentStatus; msg: string }[] {
@@ -122,10 +169,35 @@ export function CalendarScreen() {
   const [view, setView] = useState<View>("day");
   const [groupBy, setGroupBy] = useState<GroupBy>("chair");
   const [density, setDensity] = useState<DensityId>("normal");
-  const [appts, setAppts] = useState<Appointment[]>(seed);
+  const [appts, setAppts] = useState<Appointment[]>([]);
   const [apptId, setApptId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag>(null);
   const [conflict, setConflict] = useState<string | null>(null);
+
+  // The day the grid frames. A real book scrolls through days; today by default.
+  const [dayOffset, setDayOffset] = useState(0);
+  const day = useMemo(() => { const d = new Date(); d.setDate(d.getDate() + dayOffset); return d; }, [dayOffset]);
+  const { start: dayStart, end: dayEnd } = useMemo(() => dayBounds(day), [day]);
+
+  const calendarQ = useCalendar(dayStart, dayEnd);
+  const transition = useAppointmentTransition();
+  const reschedule = useRescheduleAppointment();
+
+  // Sync the editable local model from the server whenever the payload changes
+  // (initial load, day change, or a mutation's invalidation refetch). Local
+  // drag edits live between a drop and the refetch that confirms them.
+  const payload = calendarQ.data;
+  useEffect(() => {
+    if (payload) setAppts(payload.appointments.map(mapAppt));
+  }, [payload]);
+
+  // Resources: real operatories / doctors when present, else the demo defaults
+  // so an empty clinic still renders a usable grid.
+  const operatories: CalendarResource[] = payload?.operatories?.length
+    ? payload.operatories
+    : ["Chair 1", "Chair 2", "Chair 3", "Chair 4"].map((name) => ({ id: name, name }));
+  const doctorList = payload?.doctors?.length ? payload.doctors : ["Dr. Meher", "Dr. Kulkarni", "Dr. Patil"].map((name) => ({ id: name, name }));
+  const operatoryIdByName = useMemo(() => Object.fromEntries(operatories.map((o) => [o.name, o.id])), [operatories]);
 
   const gridRef = useRef<HTMLDivElement>(null);
   const hourH = DENSITIES.find((d) => d.id === density)!.hourH;
@@ -134,27 +206,49 @@ export function CalendarScreen() {
   const cols = useMemo(
     () =>
       groupBy === "chair"
-        ? ["Chair 1", "Chair 2", "Chair 3", "Chair 4"].map((c) => ({
-            key: c,
-            name: c,
-            sub: chairSubs[c],
-            field: "chair" as const,
-          }))
-        : ["Dr. Meher", "Dr. Kulkarni", "Dr. Patil"].map((d) => ({
-            key: d,
-            name: d,
-            sub: doctorSubs[d],
-            field: "doctor" as const,
-          })),
-    [groupBy],
+        ? operatories.map((o) => ({ key: o.name, name: o.name, sub: chairSubs[o.name] ?? "", field: "chair" as const }))
+        : doctorList.map((d) => ({ key: d.name, name: d.name, sub: doctorSubs[d.name] ?? "", field: "doctor" as const })),
+    [groupBy, operatories, doctorList],
   );
 
   const active = apptId ? appts.find((a) => a.id === apptId) ?? null : null;
 
-  const setStatus = (id: string, next: AppointmentStatus, msg: string) => {
-    setAppts((as) => as.map((a) => (a.id === id ? { ...a, status: next } : a)));
+  // Persist a status transition through the server state machine, then let the
+  // invalidation refetch confirm it. Optimistic locally for responsiveness.
+  const runTransition = (id: string, action: "confirm" | "check-in" | "start" | "complete" | "cancel" | "no-show", next: AppointmentStatus | undefined, msg: string) => {
+    if (next) setAppts((as) => as.map((a) => (a.id === id ? { ...a, status: next } : a)));
     showToast(msg);
+    transition.mutate(
+      { id, action, reason: action === "cancel" ? "Cancelled from the calendar" : undefined },
+      { onError: (err) => { showToast(isApiError(err) ? err.message : "Couldn't update — reverting"); void calendarQ.refetch(); } },
+    );
   };
+
+  // Persist a drag move/resize through the server's conflict engine. On a slot
+  // clash the server refuses; we name the conflicting appointment (not a dead
+  // error) and refetch to snap the block back to where it really is.
+  const persistReschedule = useCallback(
+    (id: string, startHour: number, durHours: number, chairName?: string) => {
+      const opId = chairName ? operatoryIdByName[chairName] : undefined;
+      const operatory = opId && opId !== chairName ? opId : undefined;
+      reschedule.mutate(
+        { id, start: isoAt(day, startHour), end: isoAt(day, startHour + durHours), operatory, notify: true },
+        {
+          onError: (err) => {
+            if (isApiError(err) && err.code === "CONFLICT_SLOT") {
+              const other = (err.meta as { conflictWith?: string } | undefined)?.conflictWith;
+              const clashName = other ? appts.find((a) => a.id === other)?.name : undefined;
+              showToast(clashName ? `That slot clashes with ${clashName}'s appointment` : "That slot is already booked");
+            } else {
+              showToast("Couldn't save the change");
+            }
+            void calendarQ.refetch();
+          },
+        },
+      );
+    },
+    [day, operatoryIdByName, reschedule, appts, calendarQ, showToast],
+  );
 
   // --- coordinate maths ----------------------------------------------------
 
@@ -281,9 +375,8 @@ export function CalendarScreen() {
               : { ...a, start: d.start, doctor: target.key };
           }),
         );
-        showToast(
-          `${appt.name} moved to ${fmtHour(d.start)} · ${cols[d.col].key} — confirmation queued`,
-        );
+        showToast(`${appt.name} moved to ${fmtHour(d.start)} · ${cols[d.col].key} — reschedule saved`);
+        persistReschedule(d.id, d.start, d.dur, target.field === "chair" ? target.key : undefined);
         return;
       }
 
@@ -291,6 +384,7 @@ export function CalendarScreen() {
       if (why) return showToast(`Can't extend there — ${why.toLowerCase()}`);
       setAppts((as) => as.map((a) => (a.id === d.id ? { ...a, dur: d.dur } : a)));
       showToast(`${appt.name} — now ${formatDuration(Math.round(d.dur * 60))}`);
+      persistReschedule(d.id, appt.start, d.dur, undefined);
     };
 
     window.addEventListener("pointermove", onMove);
@@ -299,7 +393,7 @@ export function CalendarScreen() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, pointToSlot, conflictAt, holdSlot, appts, cols, showToast]);
+  }, [drag, pointToSlot, conflictAt, holdSlot, appts, cols, showToast, persistReschedule]);
 
   /* Live conflict feedback while the pointer is still down. */
   useEffect(() => {
@@ -374,26 +468,30 @@ export function CalendarScreen() {
 
         <div className="flex items-center gap-0.5 border border-border rounded-md bg-surface p-0.5">
           <button
-            onClick={() => showToast("This prototype carries one day of data — Mon, 20 Jul")}
+            onClick={() => setDayOffset((o) => o - 1)}
             className="w-[26px] h-[26px] grid place-items-center rounded-[6px] text-muted hover:bg-bg"
+            aria-label="Previous day"
           >
             ‹
           </button>
           <button
-            onClick={() => showToast("Already on today")}
+            onClick={() => setDayOffset(0)}
             className="px-2.5 py-1 text-xs font-semibold rounded-[6px] hover:bg-bg"
           >
             Today
           </button>
           <button
-            onClick={() => showToast("This prototype carries one day of data — Mon, 20 Jul")}
+            onClick={() => setDayOffset((o) => o + 1)}
             className="w-[26px] h-[26px] grid place-items-center rounded-[6px] text-muted hover:bg-bg"
+            aria-label="Next day"
           >
             ›
           </button>
         </div>
 
-        <span className="text-[13px] font-semibold">Mon, 20 Jul 2026</span>
+        <span className="text-[13px] font-semibold">
+          {day.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+        </span>
 
         <Segmented
           options={[["chair", "By chair"], ["doctor", "By doctor"]]}
@@ -666,7 +764,11 @@ export function CalendarScreen() {
                 {actionsFor(active).map((ac) => (
                   <button
                     key={ac.label}
-                    onClick={() => (ac.next ? setStatus(active.id, ac.next, ac.msg) : showToast(ac.msg))}
+                    onClick={() => {
+                      const verb = ac.next ? TRANSITION_VERB[ac.next] : undefined;
+                      if (verb) runTransition(active.id, verb, ac.next, ac.msg);
+                      else showToast(ac.msg);
+                    }}
                     className="text-[12.5px] font-semibold py-2.5 rounded-md border hover:opacity-85"
                     style={{
                       background: ac.primary ? "var(--primary)" : "var(--surface)",
