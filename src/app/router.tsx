@@ -20,6 +20,7 @@ import { PatientRecordScreen } from "@/features/patients/patient-record-screen";
 const SiteHome = lazy(() => import("@/features/public-site/site-home").then((m) => ({ default: m.SiteHome })));
 const SiteScreen = lazy(() => import("@/features/public-site/site-screen").then((m) => ({ default: m.SiteScreen })));
 const PortalHome = lazy(() => import("@/features/portal/portal-home").then((m) => ({ default: m.PortalHome })));
+const PortalPlan = lazy(() => import("@/features/portal/portal-plan").then((m) => ({ default: m.PortalPlan })));
 const TreatmentPlanScreen = lazy(() => import("@/features/treatment-plan/treatment-plan-screen").then((m) => ({ default: m.TreatmentPlanScreen })));
 const CostCalculatorScreen = lazy(() => import("@/features/cost-calculator/cost-calculator-screen").then((m) => ({ default: m.CostCalculatorScreen })));
 
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
   { path: "/portal/login", element: <PortalLogin /> },
   { path: "/hub", element: patientSurface(<SiteHome />) },
   { path: "/portal", element: <RequirePatient>{patientSurface(<PortalHome />)}</RequirePatient> },
+  { path: "/portal/plan/:id", element: <RequirePatient>{patientSurface(<PortalPlan />)}</RequirePatient> },
   { path: "/plan", element: patientSurface(<TreatmentPlanScreen />) },
   { path: "/plan/:id", element: patientSurface(<TreatmentPlanScreen />) },
   { path: "/calculator", element: patientSurface(<CostCalculatorScreen />) },
