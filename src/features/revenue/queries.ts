@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query";
 import { fmtDate } from "@/lib/format";
-import { listInvoices, listPayments } from "./api";
-import type { Invoice, InvoiceStatus, Payment, PayMethod } from "./billing-data";
+import { listInvoices, listPayments, getPendingPayments, listExpenses } from "./api";
+import type { Invoice, InvoiceStatus, Payment, PayMethod, Expense } from "./billing-data";
 
 /*
  * Billing hooks (T2.7). Invoices and payments mapped from their backends into
@@ -44,6 +44,52 @@ export function useInvoices() {
       }));
     },
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Receivables aging, server-computed. Mapped into the shape the pending-payments
+ * screen renders (an outstanding-invoice list where the balance is the amount
+ * still owed). `paidPaise` is set so `invoiceBalance` returns the real balance.
+ */
+export function usePendingPayments() {
+  return useQuery({
+    queryKey: [...queryKeys.billing.all, "pending"] as const,
+    queryFn: async () => {
+      const p = await getPendingPayments();
+      const outstanding: Invoice[] = p.rows.map((r) => ({
+        id: r.id,
+        no: r.invoiceNumber,
+        patientId: "",
+        patient: r.patient ? [r.patient.firstName, r.patient.lastName].filter(Boolean).join(" ") : "—",
+        date: fmtDate(r.date),
+        ageDays: r.ageDays,
+        summary: "Outstanding balance",
+        totalPaise: r.totalPaise,
+        paidPaise: r.totalPaise - r.balancePaise,
+        status: r.ageDays >= 30 ? "overdue" : "partial",
+      }));
+      return { under30: p.under30Paise, over30: p.over30Paise, total: p.totalPaise, count: p.count, outstanding };
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useExpenses() {
+  return useQuery({
+    queryKey: [...queryKeys.billing.all, "expenses"] as const,
+    queryFn: async (): Promise<Expense[]> => {
+      const { data } = await listExpenses();
+      return data.map((e) => ({
+        id: e._id,
+        date: fmtDate(e.date),
+        category: e.category,
+        vendor: e.vendor ?? "—",
+        note: e.description ?? "",
+        amountPaise: e.amountPaise,
+      }));
+    },
+    staleTime: 60_000,
   });
 }
 

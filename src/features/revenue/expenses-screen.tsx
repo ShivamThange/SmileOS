@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/common/money-text";
 import { inr } from "@/lib/format";
 import { useUIStore } from "@/hooks/use-ui-store";
-import { expenses, type Expense } from "./billing-data";
+import { type Expense } from "./billing-data";
+import { useExpenses } from "./queries";
 
 /* Expenses — outgoings, so profitability reports tell the whole story. */
 
@@ -16,12 +17,13 @@ const CATEGORY_TINT: Record<string, string> = {
 
 export function ExpensesScreen() {
   const { showToast } = useUIStore();
+  const { data: expenses = [], isLoading } = useExpenses();
   const stats = useMemo(() => {
     const total = expenses.reduce((s, e) => s + e.amountPaise, 0);
     const byCat = expenses.reduce<Record<string, number>>((m, e) => ({ ...m, [e.category]: (m[e.category] ?? 0) + e.amountPaise }), {});
     const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
     return { total, top, catCount: Object.keys(byCat).length };
-  }, []);
+  }, [expenses]);
 
   const columns: Column<Expense>[] = [
     { key: "date", header: "DATE", width: "0.7fr", render: (e) => <span className="text-[12.5px] font-medium">{e.date}</span> },
@@ -42,7 +44,7 @@ export function ExpensesScreen() {
         <StatCard label="Biggest category" value={stats.top ? stats.top[0] : "—"} sub={stats.top ? inr(stats.top[1]) : ""} />
         <StatCard label="Categories" value={String(stats.catCount)} sub="tracked" />
       </div>
-      <DataTable columns={columns} rows={expenses} rowKey={(e) => e.id} onRowClick={(e) => showToast(`${e.vendor} — ${inr(e.amountPaise)}`)}
+      <DataTable columns={columns} rows={expenses} rowKey={(e) => e.id} loading={isLoading} onRowClick={(e) => showToast(`${e.vendor} — ${inr(e.amountPaise)}`)}
         footer={`${expenses.length} expenses`} empty={{ icon: "revenue", title: "No expenses logged", body: "Record outgoings to see true profitability." }} />
     </div>
   );
