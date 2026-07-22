@@ -72,12 +72,23 @@ recalls, analytics (dashboard + revenue-at-risk), public site + cost calculator,
 patient portal. Plus jobs/scheduler, integration services (payment/whatsapp/
 storage/email), and signature-verified idempotent webhooks.
 
+Also implemented: **users & roles admin** (`/users`, `/attendance` — invite,
+activate, permission overrides, schedule/leave, doctor performance);
+**operations CRUD** (`/inventory`, `/suppliers`, `/purchase-orders`,
+`/lab-cases` — stock ledger, PO receiving, lab status machine);
+**communications** (`/conversations`, `/templates`, `/automation-rules`,
+`/notifications` — WhatsApp session-window rule, approval-gated templates);
+**content management** (`/content`, `/public/content` — pages/SEO/blog/FAQs/
+testimonials/gallery/banners, consent-gated clinical gallery); and
+**reviews & campaigns** (`/campaigns`, `/reviews`, `/public/reviews` —
+audience preview before send, private→public review routing). Their core
+business logic has a functional harness: `npm run verify:modules` (needs a
+reachable Mongo binary).
+
 **Remaining endpoint modules** (schemas exist; routes are the next slice):
-users & roles admin, clinical CRUD (chart / notes / prescriptions / consents),
-operations CRUD (inventory / lab / suppliers / purchase-orders), communications
-(conversations / messages / templates / automation rules), content management,
-and the long tail of analytics reports. These follow the exact patterns already
-established (validator → controller → service, tenant-scoped, audited).
+clinical CRUD (chart / notes / prescriptions / consents) and the long tail of
+analytics reports. These follow the exact patterns already established
+(validator → controller → service, tenant-scoped, audited).
 
 ## Conventions (spec 8.3)
 

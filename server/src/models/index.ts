@@ -18,3 +18,4 @@ export * from "./growth.model";
 export * from "./communication.model";
 export * from "./operations.model";
 export * from "./clinical.model";
+export * from "./content.model";
