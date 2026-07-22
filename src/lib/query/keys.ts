@@ -120,6 +120,11 @@ export const queryKeys = {
     revenueAtRisk: () => ["analytics", "revenue-at-risk"] as const,
   },
 
+  notifications: {
+    all: ["notifications"] as const,
+    list: () => ["notifications", "list"] as const,
+  },
+
   portal: {
     all: ["portal"] as const,
     me: () => ["portal", "me"] as const,
