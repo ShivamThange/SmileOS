@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { visibleNavGroups } from "@/config/nav";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 import { usePermission } from "@/hooks/use-permission";
 import { useFeatureEnabled } from "@/hooks/use-features";
 import type { Permission } from "@/shared/rbac";
@@ -330,7 +331,11 @@ export function ConsoleLayout() {
         </header>
 
         <main id="main" className="flex-1 overflow-y-auto px-6 pt-5 pb-10">
-          <Outlet />
+          {/* Keyed by route so a screen error stays contained within the shell
+              (nav keeps working) and clears automatically on navigation. */}
+          <ErrorBoundary key={location.pathname} label="console">
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 

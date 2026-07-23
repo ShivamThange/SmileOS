@@ -5,6 +5,7 @@ import { AppRoot } from "@/features/dashboard/app-root";
 import { DashboardScreen } from "@/features/dashboard/dashboard-screen";
 import { NotFoundScreen } from "@/features/dashboard/not-found-screen";
 import { PatientSurfaceSkeleton } from "@/components/common/skeleton";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 import { CalendarScreen } from "@/features/appointments/calendar-screen";
 import { RecoveryScreen } from "@/features/revenue/recovery-screen";
 import { LeadsScreen } from "@/features/leads/leads-screen";
@@ -33,7 +34,9 @@ const BookingScreen = lazy(() => import("@/features/booking/booking-screen").the
  * it should not open on grey text.
  */
 const patientSurface = (el: ReactNode) => (
-  <Suspense fallback={<PatientSurfaceSkeleton />}>{el}</Suspense>
+  <ErrorBoundary label="patient-surface">
+    <Suspense fallback={<PatientSurfaceSkeleton />}>{el}</Suspense>
+  </ErrorBoundary>
 );
 import { PlansListScreen } from "@/features/treatment-plan/plans-list-screen";
 import { PlanBuilderScreen } from "@/features/treatment-plan/plan-builder-screen";

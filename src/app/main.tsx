@@ -6,6 +6,7 @@ import { queryClient } from "@/lib/query";
 import { applyCachedBranding } from "@/lib/branding";
 import { AppBoot } from "./app-boot";
 import { router } from "./router";
+import { ErrorBoundary } from "@/components/common/error-boundary";
 import "@/design/tokens.css";
 
 /*
@@ -18,10 +19,12 @@ applyCachedBranding();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AppBoot>
-        <RouterProvider router={router} />
-      </AppBoot>
-    </QueryClientProvider>
+    <ErrorBoundary label="root">
+      <QueryClientProvider client={queryClient}>
+        <AppBoot>
+          <RouterProvider router={router} />
+        </AppBoot>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );
