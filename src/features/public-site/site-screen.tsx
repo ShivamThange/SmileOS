@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLocalToast, LocalToast } from "@/components/common/local-toast";
 import { clinicConfig } from "@/config/clinic";
-import { requestAppointment } from "./api";
+import { requestAppointment, getPublicServices, getPublicDoctors } from "./api";
+import { inr } from "@/lib/format";
 
 /*
  * Public Site — the marketing storefront that earns the call (Site.dc.html).
@@ -40,7 +41,16 @@ const CREDIBILITY = [
   { value: "9,000+", label: "patients treated" },
 ];
 
-const TREATMENTS = [
+interface TreatmentCard { name: string; glyph: string; desc: string; from: string }
+interface DoctorCard { name: string; first: string; role: string; creds: string; bio: string; img: string }
+
+/** Category → glyph for procedures pulled from the catalogue. */
+const CATEGORY_GLYPH: Record<string, string> = {
+  implant: "⌾", endodontic: "◉", orthodontic: "〰", cosmetic: "✦", prosthodontic: "▦",
+  preventive: "❋", periodontal: "❋", restorative: "◉", oral_surgery: "✚", pedodontic: "❋",
+};
+
+const TREATMENTS_FALLBACK: TreatmentCard[] = [
   { name: "Dental implants", glyph: "⌾", desc: "Permanent replacements for missing teeth that look and work like your own.", from: "₹28,000" },
   { name: "Root canal & crowns", glyph: "◉", desc: "Save a painful tooth and protect it with a natural-looking cap.", from: "₹6,500" },
   { name: "Braces & aligners", glyph: "〰", desc: "Straighten teeth with clear aligners or braces, at any age.", from: "₹45,000" },
@@ -55,7 +65,7 @@ const STEPS = [
   { n: "3", title: "You decide, not us", body: "Take the plan home. Discuss it with family. Start when you're ready — or don't. Your teeth, your call." },
 ];
 
-const DOCTORS = [
+const DOCTORS_FALLBACK: DoctorCard[] = [
   { name: "Dr. Anjali Meher", first: "Dr. Meher", role: "Prosthodontist · Founder", creds: "BDS, MDS · 14 yrs", bio: "Leads implants and full-mouth work. Known for taking the time to explain every option.", img: "Portrait — Dr. Meher" },
   { name: "Dr. Rohan Kulkarni", first: "Dr. Kulkarni", role: "Endodontist", creds: "BDS, MDS · 9 yrs", bio: "Root canals and painful teeth — gentle, and fast without rushing.", img: "Portrait — Dr. Kulkarni" },
   { name: "Dr. Sneha Patil", first: "Dr. Patil", role: "Orthodontist", creds: "BDS, MDS · 7 yrs", bio: "Braces and clear aligners for children and adults alike.", img: "Portrait — Dr. Patil" },
@@ -114,6 +124,42 @@ export function SiteScreen() {
   const [faqOpen, setFaqOpen] = useState(0);
   const whatsapp = () => show("Opening WhatsApp — +91 98220 10000");
   const cases = ALL_CASES.filter((c) => caseFilter === "All" || c.cat === caseFilter).slice(0, 3);
+
+  /*
+   * Treatments and dentists come from the clinic's own catalogue and team
+   * (editable in the Console), not hardcoded marketing copy. If the public
+   * endpoints return nothing — a brand-new clinic, or an offline preview — we
+   * fall back to the polished defaults so the storefront never looks empty.
+   */
+  const [treatments, setTreatments] = useState<TreatmentCard[]>(TREATMENTS_FALLBACK);
+  const [doctors, setDoctors] = useState<DoctorCard[]>(DOCTORS_FALLBACK);
+  useEffect(() => {
+    let alive = true;
+    getPublicServices().then((rows) => {
+      if (!alive || !rows.length) return;
+      setTreatments(rows.slice(0, 6).map((p) => ({
+        name: p.friendlyName || p.name,
+        glyph: CATEGORY_GLYPH[p.category ?? ""] ?? "✚",
+        desc: p.description || "Ask us about this at your visit — we'll explain it in plain words.",
+        from: p.defaultPricePaise ? inr(p.defaultPricePaise) : "—",
+      })));
+    }).catch(() => undefined);
+    getPublicDoctors().then((rows) => {
+      if (!alive || !rows.length) return;
+      setDoctors(rows.map((d) => {
+        const first = /^dr\.?/i.test(d.name) ? `Dr. ${d.name.split(/\s+/).slice(-1)[0]}` : d.name.split(/\s+/)[0];
+        return {
+          name: d.name,
+          first,
+          role: d.specialisations?.[0] ?? "Dental surgeon",
+          creds: [d.qualifications?.join(", "), d.yearsExperience ? `${d.yearsExperience} yrs` : ""].filter(Boolean).join(" · ") || "BDS",
+          bio: d.bio || "Part of the clinical team, and happy to talk you through your options before anything begins.",
+          img: `Portrait — ${first}`,
+        };
+      }));
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
 
   /*
    * The booking form is the funnel's first real step: it creates a website lead
@@ -230,7 +276,7 @@ export function SiteScreen() {
           <Link to="/calculator" className="text-[13.5px] font-semibold no-underline">What might it cost? →</Link>
         </div>
         <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))" }}>
-          {TREATMENTS.map((t) => (
+          {treatments.map((t) => (
             <div key={t.name} onClick={() => show(`${t.name} — treatment page opens here`)} className="bg-[#FBF9F4] border border-[#E2DCCF] rounded-2xl px-[22px] pt-[22px] pb-5 cursor-pointer flex flex-col gap-2.5 min-h-[150px] hover:border-primary hover:shadow-card-hover">
               <div className="flex items-center justify-between">
                 <div className="w-[42px] h-[42px] rounded-[11px] bg-primary-tint text-primary grid place-items-center text-[19px]">{t.glyph}</div>
@@ -290,7 +336,7 @@ export function SiteScreen() {
         <div className="text-xs font-bold tracking-[0.1em] text-warning">WHO'LL TREAT YOU</div>
         <h2 className="font-serif font-medium mt-2 mb-[26px] tracking-[-0.015em]" style={{ fontSize: "clamp(26px,3vw,34px)" }}>Real dentists, real qualifications</h2>
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))" }}>
-          {DOCTORS.map((d) => (
+          {doctors.map((d) => (
             <div key={d.name} className="bg-[#FBF9F4] border border-[#E2DCCF] rounded-[18px] overflow-hidden flex flex-col hover:shadow-raised">
               <Ph style={{ height: 210 }}>{d.img}</Ph>
               <div className="px-5 pt-[18px] pb-5 flex flex-col flex-1">

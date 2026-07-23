@@ -20,3 +20,30 @@ export interface AppointmentRequestInput {
 export function requestAppointment(input: AppointmentRequestInput): Promise<{ leadId: string }> {
   return api.post<{ leadId: string }>("/public/appointment-request", input, { skipAuth: true });
 }
+
+/** A publicly-visible procedure (GET /public/services) — for the treatments grid. */
+export interface PublicService {
+  _id: string;
+  name: string;
+  friendlyName?: string;
+  category?: string;
+  description?: string;
+  defaultPricePaise?: number;
+}
+export function getPublicServices(): Promise<PublicService[]> {
+  return api.get<PublicService[]>("/public/services", { skipAuth: true });
+}
+
+/** A doctor with a public profile (GET /public/doctors) — for the dentists section. */
+export interface PublicDoctorProfile {
+  name: string;
+  avatarUrl?: string | null;
+  specialisations?: string[];
+  qualifications?: string[];
+  yearsExperience?: number;
+  bio?: string;
+  registrationNumber?: string;
+}
+export function getPublicDoctors(): Promise<PublicDoctorProfile[]> {
+  return api.get<PublicDoctorProfile[]>("/public/doctors", { skipAuth: true });
+}
