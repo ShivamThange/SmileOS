@@ -189,7 +189,7 @@ export function TreatmentPlanScreen() {
         {/* Clinic */}
         <div className="flex items-center justify-between mb-[26px]">
           <div className="flex items-center gap-[11px]">
-            <div className="w-[34px] h-[34px] rounded-[9px] bg-primary text-on-primary grid place-items-center text-[15px] font-bold">
+            <div className="w-[34px] h-[34px] rounded-[9px] bg-primary-grad text-on-primary grid place-items-center text-[15px] font-bold shadow-primary">
               {clinicConfig.shortInitial}
             </div>
             <div>
@@ -436,7 +436,7 @@ export function TreatmentPlanScreen() {
           <button
             onClick={confirm}
             disabled={acceptedCount === 0}
-            className="text-[13.5px] font-semibold px-5 py-[11px] rounded-[10px] bg-primary text-on-primary whitespace-nowrap hover:bg-primary-hover disabled:opacity-45"
+            className="text-[13.5px] font-semibold px-5 py-[11px] rounded-[10px] bg-primary-grad text-on-primary shadow-primary whitespace-nowrap transition-[transform,box-shadow,background] duration-150 hover:bg-primary-grad-hover hover:shadow-md active:translate-y-px disabled:opacity-45 disabled:shadow-none"
           >
             {acceptedCount === 0 ? "Nothing selected" : "Book my first visit"}
           </button>
@@ -460,7 +460,7 @@ export function TreatmentPlanScreen() {
             <p className="text-sm text-muted-strong leading-relaxed my-3 mb-[22px]">{done.body}</p>
             <button
               onClick={() => setDone(null)}
-              className="w-full text-[13.5px] font-semibold py-[13px] rounded-[11px] bg-primary text-on-primary hover:bg-primary-hover"
+              className="w-full text-[13.5px] font-semibold py-[13px] rounded-[11px] bg-primary-grad text-on-primary shadow-primary transition-[transform,box-shadow,background] duration-150 hover:bg-primary-grad-hover hover:shadow-md active:translate-y-px"
             >
               Done
             </button>
