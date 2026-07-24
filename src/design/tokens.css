@@ -33,6 +33,29 @@
   --primary-tint-border: #d4e0da;
   --on-primary: #f7f6f3;
 
+  /*
+   * Tactile brand fills. A flat fill reads as a prototype; a fill with a
+   * whisper of vertical light (lighter top, deeper bottom) reads as a surface
+   * you could press. Used on the primary button and brand marks — never on
+   * large areas, where it would look like a gradient for its own sake.
+   */
+  --primary-grad: linear-gradient(180deg, #2a7561 0%, #20614e 52%, #1c5645 100%);
+  --primary-grad-hover: linear-gradient(180deg, #216050 0%, #184e3f 55%, #143f33 100%);
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 55%);
+
+  /*
+   * Elevation. A four-step layered shadow scale — each step pairs a tight
+   * contact shadow (grounds the object) with a soft ambient one (gives it air).
+   * Warm-tinted, never pure black, so shadows belong to this paper-white world.
+   * This is the single biggest lever from "flat prototype" to "crafted product".
+   */
+  --shadow-xs: 0 1px 1px rgba(33, 32, 28, 0.04), 0 1px 2px rgba(33, 32, 28, 0.05);
+  --shadow-sm: 0 1px 2px rgba(33, 32, 28, 0.05), 0 2px 6px rgba(33, 32, 28, 0.06);
+  --shadow-md: 0 2px 4px rgba(33, 32, 28, 0.05), 0 6px 16px rgba(33, 32, 28, 0.08);
+  --shadow-lg: 0 6px 12px rgba(33, 32, 28, 0.07), 0 16px 40px rgba(33, 32, 28, 0.12);
+  --shadow-primary: 0 1px 2px rgba(20, 63, 51, 0.24), 0 4px 12px rgba(20, 63, 51, 0.22);
+  --ring-primary: 0 0 0 3px rgba(32, 97, 78, 0.16);
+
   /* Semantic — fixed across brands */
   --warning: #9a6215;
   --warning-bg: #faf3e7;
@@ -76,11 +99,21 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg);
+  /*
+   * A near-flat radial wash, lighter at the top, so large surfaces have a
+   * faint sense of light rather than a single dead fill. Barely perceptible by
+   * design — depth you feel, not a gradient you notice.
+   */
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #f7f6f2 0%, rgba(247, 246, 242, 0) 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-sans, "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif);
   font-size: 14px;
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
@@ -142,7 +175,10 @@ a:hover {
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 5px;
+  /* A soft tinted halo around the hard ring — the ring keeps AA legibility,
+     the halo makes it feel considered rather than a browser default. */
+  box-shadow: var(--ring-primary);
 }
 
 /* Rows and cells that take focus get a tint as well as a ring. */

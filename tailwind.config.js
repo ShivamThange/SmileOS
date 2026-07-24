@@ -55,12 +55,23 @@ export default {
         xl: "14px",
       },
       boxShadow: {
-        "card-hover": "0 2px 8px rgba(33,32,28,0.06)",
-        raised: "0 4px 16px rgba(33,32,28,0.07)",
+        // Layered elevation scale (warm-tinted, dual-layer) — see tokens.css.
+        xs: "var(--shadow-xs)",
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        primary: "var(--shadow-primary)",
+        "card-hover": "var(--shadow-md)",
+        raised: "var(--shadow-md)",
         dropdown: "0 8px 24px rgba(33,32,28,0.12)",
         drawer: "-16px 0 48px rgba(33,32,28,0.14)",
         palette: "0 24px 64px rgba(33,32,28,0.30)",
         toast: "0 8px 24px rgba(33,32,28,0.30)",
+      },
+      backgroundImage: {
+        "primary-grad": "var(--primary-grad)",
+        "primary-grad-hover": "var(--primary-grad-hover)",
+        sheen: "var(--sheen)",
       },
       transitionTimingFunction: {
         spring: "var(--ease-spring)",

@@ -93,7 +93,7 @@ export function ConsoleScreenSkeleton({ rows = 6 }: { rows?: number }) {
         </div>
         <SkeletonLine w="118px" h={30} />
       </div>
-      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg shadow-xs overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-bg-content">
           <SkeletonLine w="220px" h={11} />
         </div>

@@ -6,7 +6,7 @@ export function ToastHost() {
   if (!toast) return null;
   return (
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-ink text-on-primary text-[12.5px] font-medium px-[18px] py-2.5 rounded-lg shadow-toast animate-dc-toast max-w-[70vw]"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] bg-ink text-on-primary text-[12.5px] font-medium px-[18px] py-2.5 rounded-xl shadow-toast animate-dc-toast max-w-[70vw]"
       role="status"
       aria-live="polite"
     >

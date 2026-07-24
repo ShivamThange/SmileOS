@@ -66,7 +66,7 @@ export function DataTable<T>({
       aria-label={label}
       aria-rowcount={rows.length}
       aria-busy={loading || undefined}
-      className="bg-surface border border-border rounded-lg overflow-hidden"
+      className="bg-surface border border-border rounded-lg shadow-xs overflow-hidden [&_[data-row]:last-child]:border-b-0"
     >
       {toolbar && <div className="px-3.5 py-2.5 border-b border-border">{toolbar}</div>}
 
@@ -130,7 +130,7 @@ export function DataTable<T>({
             }
             className={cn(
               "grid gap-2.5 items-center px-3.5 py-2.5 border-b border-border-faint text-[12.5px] outline-none",
-              onRowClick && "cursor-pointer hover:bg-bg-content",
+              onRowClick && "cursor-pointer transition-colors duration-100 hover:bg-bg-content",
             )}
             style={{ gridTemplateColumns: template }}
           >

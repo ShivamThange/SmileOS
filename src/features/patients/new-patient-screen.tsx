@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Panel, MicroLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { inputClass } from "@/components/ui/input";
 import { useUIStore } from "@/hooks/use-ui-store";
 import { isApiError } from "@/lib/api";
 import { useCreatePatient } from "./queries";
@@ -20,7 +21,7 @@ function Input({ label, placeholder, value, onChange, mono }: { label: string; p
     <label className="flex flex-col gap-1.5">
       <MicroLabel>{label}</MicroLabel>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`text-[13px] px-3 py-2 border border-border rounded-md bg-bg-content outline-none focus:border-border-strong ${mono ? "font-mono" : ""}`} />
+        className={`${inputClass} ${mono ? "font-mono" : ""}`} />
     </label>
   );
 }

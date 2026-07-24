@@ -14,12 +14,18 @@ export function Meter({
 }) {
   return (
     <div
-      className={cn("rounded-[3px] bg-track overflow-hidden", className)}
+      className={cn("rounded-full bg-track overflow-hidden", className)}
       style={{ height }}
     >
       <div
-        className="h-full bg-primary rounded-[3px]"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%`, opacity }}
+        className="h-full rounded-full transition-[width] duration-500 ease-[var(--ease-spring-soft)]"
+        style={{
+          width: `${Math.min(100, Math.max(0, value))}%`,
+          opacity,
+          // A touch of vertical light on the fill so the bar reads as a solid
+          // object rather than a flat rule.
+          background: "linear-gradient(180deg, var(--primary-lift), var(--primary))",
+        }}
       />
     </div>
   );
