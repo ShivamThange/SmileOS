@@ -13,7 +13,7 @@ export function Avatar({
   return (
     <div
       className={cn(
-        "rounded-full bg-primary-tint text-primary grid place-items-center font-bold border border-primary-tint-border shrink-0",
+        "rounded-full bg-primary-tint text-primary grid place-items-center font-bold border border-primary-tint-border shadow-xs shrink-0",
         className,
       )}
       style={{ width: size, height: size, fontSize: size * 0.38 }}

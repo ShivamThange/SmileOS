@@ -93,17 +93,24 @@ export function LoginScreen() {
   const cta = mode === "otp-email" ? "Send code" : mode === "otp-code" ? "Verify & sign in" : "Sign in";
 
   return (
-    <div className="min-h-screen grid place-items-center bg-bg px-4">
+    <div
+      className="min-h-screen grid place-items-center px-4"
+      style={{
+        background:
+          "radial-gradient(900px 500px at 50% -8%, var(--primary-tint) 0%, rgba(234,241,238,0) 46%), var(--bg)",
+      }}
+    >
       <div className="w-full max-w-sm">
         <div className="text-center mb-7">
-          <div className="mx-auto mb-3 h-11 w-11 rounded-xl bg-primary text-on-primary grid place-items-center text-lg font-semibold">
-            {(clinic?.name ?? "D").slice(0, 1)}
+          <div className="relative mx-auto mb-3.5 h-12 w-12 rounded-2xl bg-primary-grad text-on-primary grid place-items-center text-xl font-semibold shadow-primary">
+            <span className="absolute inset-0 rounded-2xl bg-sheen" aria-hidden />
+            <span className="relative">{(clinic?.name ?? "D").slice(0, 1)}</span>
           </div>
-          <h1 className="text-lg font-semibold text-ink">{clinic?.name ?? "DentalOS"}</h1>
-          <p className="text-sm text-muted mt-0.5">{title}</p>
+          <h1 className="text-[19px] font-semibold tracking-[-0.02em] text-ink">{clinic?.name ?? "DentalOS"}</h1>
+          <p className="text-sm text-muted mt-1">{title}</p>
         </div>
 
-        <form onSubmit={submit} className="bg-surface border border-border rounded-2xl p-6 shadow-sm space-y-4">
+        <form onSubmit={submit} className="bg-surface border border-border rounded-2xl p-6 shadow-lg space-y-4">
           {notice && mode === "otp-code" && (
             <p className="text-[13px] text-muted-strong bg-primary-tint border border-primary-tint-border rounded-lg px-3 py-2">
               {notice}
@@ -120,7 +127,7 @@ export function LoginScreen() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@clinic.in"
-                className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-primary"
+                className="mt-1 w-full rounded-xl border border-border bg-bg-content px-3.5 py-2.5 text-sm text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:shadow-[var(--ring-primary)]"
               />
             </label>
           )}
@@ -135,7 +142,7 @@ export function LoginScreen() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                 placeholder="000000"
-                className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-lg tracking-[0.4em] text-center text-ink outline-none focus:border-primary"
+                className="mt-1 w-full rounded-xl border border-border bg-bg-content px-3.5 py-2.5 text-lg tracking-[0.4em] text-center text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:shadow-[var(--ring-primary)]"
               />
             </label>
           )}
@@ -148,7 +155,7 @@ export function LoginScreen() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-primary"
+                className="mt-1 w-full rounded-xl border border-border bg-bg-content px-3.5 py-2.5 text-sm text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:border-primary focus:shadow-[var(--ring-primary)]"
               />
             </label>
           )}
@@ -162,7 +169,7 @@ export function LoginScreen() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-lg bg-primary text-on-primary text-sm font-semibold py-2.5 hover:bg-primary-hover disabled:opacity-60 transition-colors"
+            className="w-full rounded-xl bg-primary-grad text-on-primary text-sm font-semibold py-2.5 shadow-primary transition-[transform,box-shadow,background] duration-150 hover:bg-primary-grad-hover hover:shadow-md active:translate-y-px active:shadow-xs disabled:opacity-60"
           >
             {busy ? "Please wait…" : cta}
           </button>
@@ -193,7 +200,7 @@ export function LoginScreen() {
             type="button"
             disabled
             title="Google sign-in is coming soon"
-            className="w-full rounded-lg border border-border bg-surface text-sm text-muted py-2.5 disabled:opacity-60 cursor-not-allowed"
+            className="w-full rounded-xl border border-border bg-surface text-sm text-muted py-2.5 shadow-xs disabled:opacity-60 cursor-not-allowed"
           >
             Continue with Google (coming soon)
           </button>

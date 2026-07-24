@@ -10,10 +10,10 @@ export function AppointmentStatusBadge({ status }: { status: AppointmentStatus }
   const filled = status === "in_progress";
   return (
     <span
-      className="text-[10.5px] font-bold px-2 py-[3px] rounded-[5px] border whitespace-nowrap"
+      className="text-[10.5px] font-bold tracking-[0.02em] px-2 py-[3px] rounded-md border whitespace-nowrap"
       style={{
-        background: filled ? "#20614E" : s.bg,
-        color: filled ? "#F7F6F3" : s.labelColor,
+        background: filled ? "var(--primary)" : s.bg,
+        color: filled ? "var(--on-primary)" : s.labelColor,
         borderColor: s.border,
       }}
     >
@@ -26,7 +26,7 @@ export function UrgencyBadge({ urgency }: { urgency: Urgency }) {
   const s = urgencyStyle(urgency);
   return (
     <span
-      className="text-[10.5px] font-bold tracking-[0.04em] px-2 py-[3px] rounded-[5px] border"
+      className="text-[10.5px] font-bold tracking-[0.04em] px-2 py-[3px] rounded-md border"
       style={{ background: s.bg, color: s.color, borderColor: s.border }}
     >
       {urgency.toUpperCase()}

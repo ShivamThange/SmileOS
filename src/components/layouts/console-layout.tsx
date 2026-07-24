@@ -81,7 +81,7 @@ export function ConsoleLayout() {
           <Link
             to="/app"
             title="Today"
-            className="w-7 h-7 flex-none rounded-[7px] bg-primary text-on-primary grid place-items-center text-[13px] font-bold"
+            className="relative w-7 h-7 flex-none rounded-[8px] bg-primary-grad text-on-primary grid place-items-center text-[13px] font-bold shadow-primary overflow-hidden"
           >
             {clinicConfig.shortInitial}
           </Link>
@@ -115,9 +115,10 @@ export function ConsoleLayout() {
                     aria-current={active ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-2.5 px-2.5 py-[7px] rounded-[7px] no-underline",
+                      "transition-[background-color,box-shadow,color] duration-150",
                       active
-                        ? "bg-surface text-primary font-semibold"
-                        : "text-muted-strong font-medium hover:bg-[var(--nav-hover)]",
+                        ? "bg-surface text-primary font-semibold shadow-xs border border-border-faint"
+                        : "text-muted-strong font-medium border border-transparent hover:bg-[var(--nav-hover)]",
                     )}
                   >
                     <Icon name={nv.icon} size={16} />
@@ -153,10 +154,10 @@ export function ConsoleLayout() {
 
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0 bg-bg-content">
-        <header className="h-[52px] flex-none flex items-center gap-2.5 px-4 border-b border-border bg-surface">
+        <header className="h-[52px] flex-none flex items-center gap-2.5 px-4 border-b border-border bg-surface shadow-xs relative z-10">
           <button
             onClick={() => setPaletteOpen(true)}
-            className="flex items-center gap-2 w-[290px] max-w-[28vw] px-2.5 py-1.5 border border-border rounded-md bg-bg-content text-muted-2 text-[12.5px] hover:border-border-strong"
+            className="flex items-center gap-2 w-[290px] max-w-[28vw] px-2.5 py-1.5 border border-border rounded-lg bg-bg-content text-muted-2 text-[12.5px] shadow-xs transition-[border-color,box-shadow] hover:border-border-strong hover:shadow-sm"
           >
             <Icon name="search" size={14} />
             <span className="flex-1 text-left truncate">Search or do anything…</span>
@@ -211,7 +212,7 @@ export function ConsoleLayout() {
                 closeMenus();
                 setPlusOpen((o) => !o);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-on-primary text-[12.5px] font-semibold hover:bg-primary-hover"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-grad text-on-primary text-[12.5px] font-semibold shadow-primary transition-[transform,box-shadow,background] duration-150 hover:bg-primary-grad-hover hover:shadow-md active:translate-y-px"
             >
               <Icon name="plus" size={13} strokeWidth={1.6} />
               Create
@@ -254,7 +255,7 @@ export function ConsoleLayout() {
                 closeMenus();
                 setWhoOpen((o) => !o);
               }}
-              className="w-[30px] h-[30px] rounded-full bg-primary-tint text-primary grid place-items-center text-[11.5px] font-bold border border-primary-tint-border"
+              className="w-[30px] h-[30px] rounded-full bg-primary-tint text-primary grid place-items-center text-[11.5px] font-bold border border-primary-tint-border shadow-xs transition-shadow hover:shadow-sm"
             >
               {user.initials}
             </button>

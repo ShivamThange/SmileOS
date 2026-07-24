@@ -33,8 +33,8 @@ export function StatCard({
       onClick={onClick}
       className="p-4 flex flex-col gap-1.5"
     >
-      <div className="text-[11.5px] font-semibold text-muted">{label}</div>
-      <div className="text-[21px] font-bold tnum tracking-[-0.02em]">{value}</div>
+      <div className="text-[11px] font-semibold text-muted uppercase tracking-[0.05em]">{label}</div>
+      <div className="text-[22px] font-bold tnum tracking-[-0.03em] text-ink">{value}</div>
       {barPct !== undefined && <Meter value={barPct} className="my-0.5" />}
       {(delta || sub) && (
         <div className="text-[11.5px] flex gap-1.5 items-baseline">

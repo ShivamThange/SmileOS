@@ -150,7 +150,7 @@ export function CostCalculatorScreen() {
       <div className="w-full max-w-[760px] pt-6 pb-[60px]">
         <div className="flex items-center justify-between mb-[22px]">
           <Link to="/" className="flex items-center gap-2.5 no-underline">
-            <div className="w-8 h-8 rounded-[9px] bg-primary text-on-primary grid place-items-center text-[15px] font-bold">{clinicConfig.shortInitial}</div>
+            <div className="w-8 h-8 rounded-[9px] bg-primary-grad text-on-primary grid place-items-center text-[15px] font-bold shadow-primary">{clinicConfig.shortInitial}</div>
             <div>
               <div className="text-sm font-semibold text-[#26241F]">{clinicConfig.name}</div>
               <div className="text-[10.5px] text-[#8C887E]">Cost estimate</div>
@@ -314,7 +314,7 @@ export function CostCalculatorScreen() {
             <div className="mt-5">
               <div className="font-serif text-[19px] font-medium mb-3">Happy with this? Here's what you can do</div>
               <div className="flex flex-col gap-2.5">
-                <div onClick={() => show("Estimate sent to your WhatsApp")} className="flex items-center gap-3 text-sm font-semibold px-[18px] py-3.5 rounded-xl bg-primary text-on-primary cursor-pointer hover:bg-primary-hover"><span className="text-[17px]">✆</span>Send this estimate to me on WhatsApp</div>
+                <div onClick={() => show("Estimate sent to your WhatsApp")} className="flex items-center gap-3 text-sm font-semibold px-[18px] py-3.5 rounded-xl bg-primary-grad text-on-primary shadow-primary cursor-pointer transition-[transform,box-shadow,background] duration-150 hover:bg-primary-grad-hover hover:shadow-md active:translate-y-px"><span className="text-[17px]">✆</span>Send this estimate to me on WhatsApp</div>
                 <Link to="/#book" className="flex items-center gap-3 text-sm font-semibold px-[18px] py-3.5 rounded-xl border border-[#CFC8B8] bg-[#FBF9F4] cursor-pointer no-underline text-[#26241F] hover:bg-[#F3EEE4]"><span className="text-base">🗓</span>Book a consultation</Link>
                 <div onClick={() => show("Breakdown emailed to you")} className="flex items-center gap-3 text-sm font-semibold px-[18px] py-3.5 rounded-xl border border-[#CFC8B8] bg-[#FBF9F4] cursor-pointer hover:bg-[#F3EEE4]"><span className="text-[15px]">✉</span>Email me the full breakdown</div>
               </div>

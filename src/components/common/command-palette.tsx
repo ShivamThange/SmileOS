@@ -245,14 +245,14 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex justify-center pt-[12vh] px-4 animate-dc-fade"
+      className="fixed inset-0 z-[80] flex justify-center pt-[12vh] px-4 animate-dc-fade backdrop-blur-[2px]"
       style={{ background: "rgba(33,32,28,0.32)" }}
       onClick={close}
     >
       <div
         role="dialog"
         aria-label="Command palette"
-        className="w-[560px] max-w-full h-fit max-h-[62vh] bg-surface rounded-xl shadow-palette flex flex-col overflow-hidden animate-dc-pop"
+        className="w-[560px] max-w-full h-fit max-h-[62vh] bg-surface rounded-2xl shadow-palette flex flex-col overflow-hidden animate-dc-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-border">

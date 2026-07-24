@@ -9,8 +9,12 @@ export function Panel({
   return (
     <div
       className={cn(
-        "bg-surface border border-border rounded-lg",
-        interactive && "cursor-pointer hover:border-border-strong transition-colors",
+        // A hairline border plus the faintest contact shadow lifts the surface
+        // off the warm canvas — the difference between a drawn box and a card
+        // resting on paper.
+        "bg-surface border border-border rounded-lg shadow-xs",
+        interactive &&
+          "cursor-pointer transition-[transform,box-shadow,border-color] duration-200 ease-[var(--ease-spring-soft)] hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md",
         className,
       )}
       {...props}
